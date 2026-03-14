@@ -1,18 +1,21 @@
 .aqt-floating-panel {
     position: fixed;
-    top: 80px;
+    top: 24px;
     right: 24px;
-    width: 360px;
-    max-height: 80vh;
-    overflow-y: auto;
+    width: 400px;
+    max-height: calc(100vh - 48px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     background: #ffffff;
     border: 1px solid #e5e7eb;
-    border-radius: 16px;
+    border-radius: 20px;
     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.22);
     z-index: 999999;
     font-family: Arial, sans-serif;
     color: #111827;
     padding: 0;
+    box-sizing: border-box;
 }
 
 .aqt-panel-header {
@@ -26,6 +29,7 @@
     align-items: center;
     cursor: move;
     user-select: none;
+    flex-shrink: 0;
 }
 
 .aqt-panel-title {
@@ -51,18 +55,24 @@
 }
 
 .aqt-panel-body {
-    padding: 16px;
+    padding: 18px;
+    overflow-y: auto;
+    flex: 1;
+    box-sizing: border-box;
 }
 
 .aqt-strategy-block {
-    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
 }
 
 .aqt-block-label {
     font-size: 12px;
     font-weight: 700;
     color: #6b7280;
-    margin-bottom: 6px;
+    min-width: 80px;
 }
 
 .aqt-strategy-badge {
@@ -76,7 +86,7 @@
 }
 
 .aqt-panel-section {
-    margin-bottom: 16px;
+    margin-bottom: 18px;
 }
 
 .aqt-panel-section-title {
@@ -89,25 +99,28 @@
 .aqt-panel-code {
     background: #f3f4f6;
     border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    padding: 10px 12px;
+    border-radius: 16px;
+    padding: 14px 16px;
     font-family: monospace;
     font-size: 13px;
     color: #111827;
     word-break: break-word;
+    box-sizing: border-box;
+    width: 100%;
 }
 
 .aqt-panel-copy {
-    margin-top: 8px;
+    margin-top: 10px;
     width: 100%;
     border: none;
-    border-radius: 10px;
-    padding: 10px 12px;
+    border-radius: 16px;
+    padding: 14px 16px;
     background: #111827;
     color: white;
     font-size: 13px;
     font-weight: 700;
     cursor: pointer;
+    box-sizing: border-box;
 }
 
 .aqt-panel-copy:hover,
@@ -155,3 +168,18 @@
     background: #fee2e2;
     color: #991b1b;
 }
+
+/*.aqt-meta-row {*/
+/*    display: flex;*/
+/*    align-items: center;*/
+/*    gap: 10px;*/
+/*    margin-bottom: 12px;*/
+/*    font-size: 14px;*/
+/*    flex-wrap: wrap;*/
+/*}*/
+
+/*.aqt-meta-label {*/
+/*    font-weight: 600;*/
+/*    color: #6b7280;*/
+/*}*/
+
