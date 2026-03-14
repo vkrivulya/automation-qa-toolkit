@@ -132,3 +132,26 @@
     min-width: 220px;
     text-align: center;
 }
+
+.aqt-stability-badge {
+    display: inline-block;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.aqt-stability-stable {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.aqt-stability-medium {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.aqt-stability-weak {
+    background: #fee2e2;
+    color: #991b1b;
+}
