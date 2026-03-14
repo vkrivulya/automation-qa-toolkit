@@ -1,0 +1,1 @@
+console.log("Automation QA Toolkit background loaded");

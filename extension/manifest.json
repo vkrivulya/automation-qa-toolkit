@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "Automation QA Toolkit",
+  "description": "Tools for QA engineers: selector generator, bug report helper and more.",
+  "version": "0.1",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content/utils.js",
+        "content/selectors.js",
+        "content/panel.js",
+        "content/picker.js",
+        "content/main.js"
+      ]
+    }
+  ]
+}
