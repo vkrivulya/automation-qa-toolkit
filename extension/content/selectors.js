@@ -49,38 +49,39 @@ window.AQT.generateSelectors = function (elementInfo) {
     let playwright = "";
     let strategy = "";
 
+    const tag = elementInfo.tag ? elementInfo.tag.toLowerCase() : "*";
+
     if (elementInfo.dataE2e) {
         css = `[data-e2e="${elementInfo.dataE2e}"]`;
-        xpath = `//*[@data-e2e="${elementInfo.dataE2e}"]`;
+        xpath = `//${tag}[@data-e2e="${elementInfo.dataE2e}"]`;
         selenide = `$("[data-e2e='${elementInfo.dataE2e}']")`;
         playwright = `page.locator('[data-e2e="${elementInfo.dataE2e}"]')`;
         strategy = "data-e2e";
     } else if (elementInfo.dataTestId) {
         css = `[data-testid="${elementInfo.dataTestId}"]`;
-        xpath = `//*[@data-testid="${elementInfo.dataTestId}"]`;
+        xpath = `//${tag}[@data-testid="${elementInfo.dataTestId}"]`;
         selenide = `$("[data-testid='${elementInfo.dataTestId}']")`;
         playwright = `page.locator('[data-testid="${elementInfo.dataTestId}"]')`;
         strategy = "data-testid";
     } else if (elementInfo.dataTest) {
         css = `[data-test="${elementInfo.dataTest}"]`;
-        xpath = `//*[@data-test="${elementInfo.dataTest}"]`;
+        xpath = `//${tag}[@data-test="${elementInfo.dataTest}"]`;
         selenide = `$("[data-test='${elementInfo.dataTest}']")`;
         playwright = `page.locator('[data-test="${elementInfo.dataTest}"]')`;
         strategy = "data-test";
     } else if (elementInfo.id) {
         css = `#${elementInfo.id}`;
-        xpath = `//*[@id="${elementInfo.id}"]`;
+        xpath = `//${tag}[@id="${elementInfo.id}"]`;
         selenide = `$("#${elementInfo.id}")`;
         playwright = `page.locator('#${elementInfo.id}')`;
         strategy = "id";
     } else if (elementInfo.name) {
         css = `[name="${elementInfo.name}"]`;
-        xpath = `//*[@name="${elementInfo.name}"]`;
+        xpath = `//${tag}[@name="${elementInfo.name}"]`;
         selenide = `$("[name='${elementInfo.name}']")`;
         playwright = `page.locator('[name="${elementInfo.name}"]')`;
         strategy = "name";
     } else {
-        const tag = elementInfo.tag ? elementInfo.tag.toLowerCase() : "*";
         css = tag;
         xpath = `//${tag}`;
         selenide = `$("${tag}")`;
@@ -88,11 +89,19 @@ window.AQT.generateSelectors = function (elementInfo) {
         strategy = "tag";
     }
 
+    const allSelectorsText =
+        `Strategy: ${strategy}
+CSS: ${css}
+XPath: ${xpath}
+Selenide: ${selenide}
+Playwright: ${playwright}`;
+
     return {
         strategy,
         css,
         xpath,
         selenide,
-        playwright
+        playwright,
+        allSelectorsText
     };
 };
