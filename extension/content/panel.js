@@ -124,6 +124,7 @@ window.AQT.showFloatingPanel = function (selectors) {
       </div>
 
       ${buildPanelSection("CSS", selectors.css, "Copy CSS")}
+      ${buildPanelSection("XPath", selectors.xpath, "Copy XPath")}
       ${buildPanelSection("Selenide", selectors.selenide, "Copy Selenide")}
       ${buildPanelSection("Playwright", selectors.playwright, "Copy Playwright")}
     </div>

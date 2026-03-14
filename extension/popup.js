@@ -34,6 +34,12 @@ function renderResult(selectors) {
         <div class="result-value">${escapeHtml(selectors.css)}</div>
         <button class="copy-button" data-copy="${escapeAttribute(selectors.css)}">Copy CSS</button>
       </div>
+      
+      <div class="result-row">
+        <span class="result-label">XPath</span>
+        <div class="result-value">${escapeHtml(selectors.xpath)}</div>
+        <button class="copy-button" data-copy="${escapeAttribute(selectors.xpath)}">Copy XPath</button>
+      </div>
 
       <div class="result-row">
         <span class="result-label">Selenide</span>
