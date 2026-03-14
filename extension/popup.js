@@ -52,6 +52,9 @@ function renderResult(selectors) {
         <div class="result-value">${escapeHtml(selectors.playwright)}</div>
         <button class="copy-button" data-copy="${escapeAttribute(selectors.playwright)}">Copy Playwright</button>
       </div>
+      <div class="result-row">
+        <button class="copy-button" data-copy="${escapeAttribute(selectors.allSelectorsText)}">Copy All</button>
+      </div>
     </div>
   `;
 

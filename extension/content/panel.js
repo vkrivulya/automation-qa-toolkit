@@ -127,6 +127,13 @@ window.AQT.showFloatingPanel = function (selectors) {
       ${buildPanelSection("XPath", selectors.xpath, "Copy XPath")}
       ${buildPanelSection("Selenide", selectors.selenide, "Copy Selenide")}
       ${buildPanelSection("Playwright", selectors.playwright, "Copy Playwright")}
+      
+      <button
+        class="aqt-panel-copy"
+        data-copy="${window.AQT.escapeAttribute(selectors.allSelectorsText)}"
+      >
+        Copy All
+      </button>
     </div>
   `;
 
