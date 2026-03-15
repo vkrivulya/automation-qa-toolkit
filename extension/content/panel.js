@@ -1,5 +1,19 @@
 window.AQT = window.AQT || {};
 
+window.AQT.getStabilityView = function (stability) {
+    const normalized = String(stability || "weak").toLowerCase();
+
+    if (normalized === "stable") {
+        return { key: "stable", label: "🟢 Stable" };
+    }
+
+    if (normalized === "medium") {
+        return { key: "medium", label: "🟡 Medium" };
+    }
+
+    return { key: "weak", label: "🔴 Weak" };
+};
+
 window.AQT.showToast = function (message) {
     const existingToast = document.getElementById("aqt-toast");
 
@@ -21,14 +35,21 @@ window.AQT.showToast = function (message) {
     }, 2000);
 };
 
-window.AQT.buildPanelSection = function (title, value, buttonText) {
+window.AQT.buildPanelSection = function (title, value, buttonText, meta) {
     const escapeHtml = window.AQT.escapeHtml;
     const escapeAttribute = window.AQT.escapeAttribute;
 
+    const stabilityView = window.AQT.getStabilityView(meta?.stability);
+
     return `
     <div class="aqt-panel-section">
-      <div class="aqt-panel-section-title">
-        ${escapeHtml(title)}
+      <div class="aqt-panel-section-title-row">
+        <div class="aqt-panel-section-title">
+          ${escapeHtml(title)}
+        </div>
+        <div class="aqt-stability-badge aqt-stability-${escapeHtml(stabilityView.key)}">
+          ${escapeHtml(stabilityView.label)}
+        </div>
       </div>
 
       <div class="aqt-panel-code">
@@ -102,6 +123,7 @@ window.AQT.showFloatingPanel = function (selectors) {
 
     const buildPanelSection = window.AQT.buildPanelSection;
     const escapeHtml = window.AQT.escapeHtml;
+    const overallStabilityView = window.AQT.getStabilityView(selectors.stability);
 
     const panel = document.createElement("div");
     panel.id = "aqt-floating-panel";
@@ -125,15 +147,15 @@ window.AQT.showFloatingPanel = function (selectors) {
       
       <div class="aqt-strategy-block">
         <div class="aqt-block-label">STABILITY</div>
-        <div class="aqt-stability-badge aqt-stability-${escapeHtml(selectors.stability)}">
-            ${escapeHtml(selectors.stability)}
+        <div class="aqt-stability-badge aqt-stability-${escapeHtml(overallStabilityView.key)}">
+            ${escapeHtml(overallStabilityView.label)}
         </div>
       </div>
 
-      ${buildPanelSection("CSS", selectors.css, "Copy CSS")}
-      ${buildPanelSection("XPath", selectors.xpath, "Copy XPath")}
-      ${buildPanelSection("Selenide", selectors.selenide, "Copy Selenide")}
-      ${buildPanelSection("Playwright", selectors.playwright, "Copy Playwright")}
+      ${buildPanelSection("CSS", selectors.css, "Copy CSS", selectors.selectorMeta?.css)}
+      ${buildPanelSection("XPath", selectors.xpath, "Copy XPath", selectors.selectorMeta?.xpath)}
+      ${buildPanelSection("Selenide", selectors.selenide, "Copy Selenide", selectors.selectorMeta?.selenide)}
+      ${buildPanelSection("Playwright", selectors.playwright, "Copy Playwright", selectors.selectorMeta?.playwright)}
       
       <button
         class="aqt-panel-copy"

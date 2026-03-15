@@ -104,6 +104,16 @@ window.AQT.isLikelyGeneratedClass = function (className) {
     );
 };
 
+window.AQT.stabilityRank = function (stability) {
+    const ranks = {
+        stable: 3,
+        medium: 2,
+        weak: 1
+    };
+
+    return ranks[stability] || 1;
+};
+
 window.AQT.getUniqueClassSelector = function (element, tag) {
     if (!element || !element.classList || !element.classList.length) {
         return "";
@@ -131,6 +141,41 @@ window.AQT.getUniqueClassSelector = function (element, tag) {
     }
 
     return "";
+};
+
+window.AQT.getIndexedCssSelector = function (element, tag) {
+    if (!element || !element.parentElement) {
+        return tag;
+    }
+
+    const siblings = Array.from(element.parentElement.children)
+        .filter((sibling) => sibling.tagName.toLowerCase() === tag);
+
+    const index = siblings.indexOf(element) + 1;
+    const parentTag = element.parentElement.tagName.toLowerCase();
+
+    if (siblings.length <= 1) {
+        return `${parentTag} > ${tag}`;
+    }
+
+    return `${parentTag} > ${tag}:nth-of-type(${index})`;
+};
+
+window.AQT.getIndexedXpath = function (element, tag) {
+    if (!element || !element.parentElement) {
+        return `//${tag}`;
+    }
+
+    const siblings = Array.from(element.parentElement.children)
+        .filter((sibling) => sibling.tagName.toLowerCase() === tag);
+
+    if (siblings.length <= 1) {
+        return `//${tag}`;
+    }
+
+    const index = siblings.indexOf(element) + 1;
+
+    return `(//${tag})[${index}]`;
 };
 
 window.AQT.getTextBasedSelectors = function (element, tag) {
@@ -162,159 +207,174 @@ window.AQT.getTextBasedSelectors = function (element, tag) {
     }
 
     return {
-        css: window.AQT.getIndexedCssSelector(element, tag),
         xpath,
         selenide: `$x("${xpath}")`,
         playwright,
         strategy: "text",
-        stability: "🟡 Medium"
+        stability: "medium"
     };
 };
 
-window.AQT.getIndexedCssSelector = function (element, tag) {
-    if (!element || !element.parentElement) {
-        return tag;
+window.AQT.getCssFallbackMeta = function (element, tag) {
+    const uniqueClassSelector = window.AQT.getUniqueClassSelector(element, tag);
+
+    if (uniqueClassSelector) {
+        return {
+            value: uniqueClassSelector,
+            strategy: "class",
+            stability: "medium"
+        };
     }
 
-    const siblings = Array.from(element.parentElement.children)
-        .filter((sibling) => sibling.tagName.toLowerCase() === tag);
-
-    if (siblings.length <= 1) {
-        return tag;
-    }
-
-    const index = siblings.indexOf(element) + 1;
-
-    return `${tag}:nth-of-type(${index})`;
-};
-
-
-window.AQT.getIndexedXpath = function (element, tag) {
-    if (!element || !element.parentElement) {
-        return `//${tag}`;
-    }
-
-    const siblings = Array.from(element.parentElement.children)
-        .filter((sibling) => sibling.tagName.toLowerCase() === tag);
-
-    if (siblings.length <= 1) {
-        return `//${tag}`;
-    }
-
-    const index = siblings.indexOf(element) + 1;
-
-    return `(//${tag})[${index}]`;
+    return {
+        value: window.AQT.getIndexedCssSelector(element, tag),
+        strategy: "tag+nth",
+        stability: "weak"
+    };
 };
 
 window.AQT.generateSelectors = function (elementInfo, element) {
-    let css = "";
-    let xpath = "";
-    let selenide = "";
-    let playwright = "";
-    let strategy = "";
-    let stability = "";
-
     const tag = elementInfo.tag ? elementInfo.tag.toLowerCase() : "*";
 
-    if (elementInfo.dataE2e) {
-        const escaped = window.AQT.escapeCssValue(elementInfo.dataE2e);
-        const escapedXpath = window.AQT.escapeXpathValue(elementInfo.dataE2e);
+    const selectorMeta = {
+        css: { value: "", strategy: "", stability: "weak" },
+        xpath: { value: "", strategy: "", stability: "weak" },
+        selenide: { value: "", strategy: "", stability: "weak" },
+        playwright: { value: "", strategy: "", stability: "weak" }
+    };
 
-        css = `[data-e2e="${escaped}"]`;
-        xpath = `//${tag}[@data-e2e=${escapedXpath}]`;
-        selenide = `$("[data-e2e='${elementInfo.dataE2e}']")`;
-        playwright = `page.locator('[data-e2e="${elementInfo.dataE2e}"]')`;
-        strategy = "data-e2e";
-        stability = "🟢 Stable";
-    } else if (elementInfo.dataTestId) {
-        const escaped = window.AQT.escapeCssValue(elementInfo.dataTestId);
-        const escapedXpath = window.AQT.escapeXpathValue(elementInfo.dataTestId);
+    if (elementInfo.dataE2e || elementInfo.dataTestId || elementInfo.dataTest || elementInfo.id || elementInfo.name) {
+        const attrPriority = [
+            { key: "dataE2e", attr: "data-e2e", strategy: "data-e2e", stability: "stable" },
+            { key: "dataTestId", attr: "data-testid", strategy: "data-testid", stability: "stable" },
+            { key: "dataTest", attr: "data-test", strategy: "data-test", stability: "stable" },
+            { key: "id", attr: "id", strategy: "id", stability: "stable", isId: true },
+            { key: "name", attr: "name", strategy: "name", stability: "medium" }
+        ];
 
-        css = `[data-testid="${escaped}"]`;
-        xpath = `//${tag}[@data-testid=${escapedXpath}]`;
-        selenide = `$("[data-testid='${elementInfo.dataTestId}']")`;
-        playwright = `page.locator('[data-testid="${elementInfo.dataTestId}"]')`;
-        strategy = "data-testid";
-        stability = "🟢 Stable";
-    } else if (elementInfo.dataTest) {
-        const escaped = window.AQT.escapeCssValue(elementInfo.dataTest);
-        const escapedXpath = window.AQT.escapeXpathValue(elementInfo.dataTest);
+        const selected = attrPriority.find((item) => elementInfo[item.key]);
 
-        css = `[data-test="${escaped}"]`;
-        xpath = `//${tag}[@data-test=${escapedXpath}]`;
-        selenide = `$("[data-test='${elementInfo.dataTest}']")`;
-        playwright = `page.locator('[data-test="${elementInfo.dataTest}"]')`;
-        strategy = "data-test";
-        stability = "🟢 Stable";
-    } else if (elementInfo.id) {
-        const escapedId = window.AQT.escapeCssValue(elementInfo.id);
-        const escapedXpath = window.AQT.escapeXpathValue(elementInfo.id);
+        if (selected) {
+            const rawValue = elementInfo[selected.key];
+            const escapedCss = window.AQT.escapeCssValue(rawValue);
+            const escapedXpath = window.AQT.escapeXpathValue(rawValue);
+            const escapedJs = window.AQT.escapeJsSingleQuotedString(rawValue);
 
-        css = `#${escapedId}`;
-        xpath = `//${tag}[@id=${escapedXpath}]`;
-        selenide = `$("#${elementInfo.id}")`;
-        playwright = `page.locator('#${elementInfo.id}')`;
-        strategy = "id";
-        stability = "🟢 Stable";
-    } else if (elementInfo.name) {
-        const escapedName = window.AQT.escapeCssValue(elementInfo.name);
-        const escapedXpath = window.AQT.escapeXpathValue(elementInfo.name);
+            if (selected.isId) {
+                selectorMeta.css = {
+                    value: `#${escapedCss}`,
+                    strategy: selected.strategy,
+                    stability: selected.stability
+                };
+                selectorMeta.playwright = {
+                    value: `page.locator('#${escapedJs}')`,
+                    strategy: selected.strategy,
+                    stability: selected.stability
+                };
+                selectorMeta.selenide = {
+                    value: `$("#${window.AQT.escapeJsSingleQuotedString(rawValue)}")`,
+                    strategy: selected.strategy,
+                    stability: selected.stability
+                };
+            } else {
+                selectorMeta.css = {
+                    value: `[${selected.attr}="${escapedCss}"]`,
+                    strategy: selected.strategy,
+                    stability: selected.stability
+                };
+                selectorMeta.playwright = {
+                    value: `page.locator('[${selected.attr}="${escapedJs}"]')`,
+                    strategy: selected.strategy,
+                    stability: selected.stability
+                };
+                selectorMeta.selenide = {
+                    value: `$('[${selected.attr}="${window.AQT.escapeJsSingleQuotedString(rawValue)}"]')`,
+                    strategy: selected.strategy,
+                    stability: selected.stability
+                };
+            }
 
-        css = `[name="${escapedName}"]`;
-        xpath = `//${tag}[@name=${escapedXpath}]`;
-        selenide = `$("[name='${elementInfo.name}']")`;
-        playwright = `page.locator('[name="${elementInfo.name}"]')`;
-        strategy = "name";
-        stability = "🟡 Medium";
+            selectorMeta.xpath = {
+                value: `//${tag}[@${selected.attr}=${escapedXpath}]`,
+                strategy: selected.strategy,
+                stability: selected.stability
+            };
+        }
     } else {
         const textBasedSelectors = window.AQT.getTextBasedSelectors(element, tag);
 
         if (textBasedSelectors) {
-            css = textBasedSelectors.css;
-            xpath = textBasedSelectors.xpath;
-            selenide = textBasedSelectors.selenide;
-            playwright = textBasedSelectors.playwright;
-            strategy = textBasedSelectors.strategy;
-            stability = textBasedSelectors.stability;
-        } else {
-            const uniqueClassSelector = window.AQT.getUniqueClassSelector(element, tag);
+            const cssFallback = window.AQT.getCssFallbackMeta(element, tag);
 
-            if (uniqueClassSelector) {
-                css = uniqueClassSelector;
-                const classNames = uniqueClassSelector.split(".").slice(1);
-                const classPredicate = classNames
-                    .map((className) => `contains(concat(" ", normalize-space(@class), " "), ${window.AQT.escapeXpathValue(` ${className} `)})`)
-                    .join(" and ");
-                xpath = `//${tag}[${classPredicate}]`;
-                selenide = `$("${uniqueClassSelector}")`;
-                playwright = `page.locator('${uniqueClassSelector}')`;
-                strategy = "class";
-                stability = "🟡 Medium";
-            } else {
-                css = window.AQT.getIndexedCssSelector(element, tag);
-                xpath = window.AQT.getIndexedXpath(element, tag);
-                selenide = `$("${css}")`;
-                playwright = `page.locator('${css}')`;
-                strategy = "tag+nth";
-                stability = "🔴 Weak";
-            }
+            selectorMeta.css = {
+                value: cssFallback.value,
+                strategy: cssFallback.strategy,
+                stability: cssFallback.stability
+            };
+            selectorMeta.xpath = {
+                value: textBasedSelectors.xpath,
+                strategy: textBasedSelectors.strategy,
+                stability: textBasedSelectors.stability
+            };
+            selectorMeta.selenide = {
+                value: textBasedSelectors.selenide,
+                strategy: textBasedSelectors.strategy,
+                stability: textBasedSelectors.stability
+            };
+            selectorMeta.playwright = {
+                value: textBasedSelectors.playwright,
+                strategy: textBasedSelectors.strategy,
+                stability: textBasedSelectors.stability
+            };
+        } else {
+            const cssFallback = window.AQT.getCssFallbackMeta(element, tag);
+            const xpath = window.AQT.getIndexedXpath(element, tag);
+
+            selectorMeta.css = {
+                value: cssFallback.value,
+                strategy: cssFallback.strategy,
+                stability: cssFallback.stability
+            };
+            selectorMeta.xpath = {
+                value: xpath,
+                strategy: "tag+nth",
+                stability: "weak"
+            };
+            selectorMeta.selenide = {
+                value: `$("${cssFallback.value}")`,
+                strategy: cssFallback.strategy,
+                stability: cssFallback.stability
+            };
+            selectorMeta.playwright = {
+                value: `page.locator('${cssFallback.value}')`,
+                strategy: cssFallback.strategy,
+                stability: cssFallback.stability
+            };
         }
     }
 
+    const bestKey = Object.keys(selectorMeta)
+        .sort((a, b) => window.AQT.stabilityRank(selectorMeta[b].stability) - window.AQT.stabilityRank(selectorMeta[a].stability))[0];
+
+    const strategy = selectorMeta[bestKey].strategy;
+    const stability = selectorMeta[bestKey].stability;
+
     const allSelectorsText =
-        `Strategy: ${strategy}
-CSS: ${css}
-XPath: ${xpath}
-Selenide: ${selenide}
-Playwright: ${playwright}`;
+        `Best strategy: ${strategy}\n` +
+        `Overall stability: ${stability}\n` +
+        `CSS [${selectorMeta.css.stability}]: ${selectorMeta.css.value}\n` +
+        `XPath [${selectorMeta.xpath.stability}]: ${selectorMeta.xpath.value}\n` +
+        `Selenide [${selectorMeta.selenide.stability}]: ${selectorMeta.selenide.value}\n` +
+        `Playwright [${selectorMeta.playwright.stability}]: ${selectorMeta.playwright.value}`;
 
     return {
         strategy,
         stability,
-        css,
-        xpath,
-        selenide,
-        playwright,
+        css: selectorMeta.css.value,
+        xpath: selectorMeta.xpath.value,
+        selenide: selectorMeta.selenide.value,
+        playwright: selectorMeta.playwright.value,
+        selectorMeta,
         allSelectorsText
     };
 };
