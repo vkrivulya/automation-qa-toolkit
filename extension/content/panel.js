@@ -20,6 +20,9 @@ window.AQT.getSelectorTitle = function (key) {
         xpath: "XPath",
         selenideCss: "Selenide CSS",
         selenideXpath: "Selenide XPath",
+        xpathTextAlternative: "XPath (text alt)",
+        selenideXpathTextAlternative: "Selenide XPath (text alt)",
+        playwrightTextAlternative: "Playwright (text alt)",
         playwright: "Playwright"
     };
 
@@ -174,6 +177,31 @@ window.AQT.showFloatingPanel = function (selectors) {
         <summary>Other selectors</summary>
         ${otherSections}
       </details>
+
+      ${selectors.xpathTextAlternative ? window.AQT.buildPanelSection("xpathTextAlternative", {
+        ...selectors,
+        xpathTextAlternative: selectors.xpathTextAlternative,
+        selectorMeta: {
+            ...selectors.selectorMeta,
+            xpathTextAlternative: { strategy: "text", stability: "medium" }
+        }
+      }, false) : ""}
+      ${selectors.selenideXpathTextAlternative ? window.AQT.buildPanelSection("selenideXpathTextAlternative", {
+        ...selectors,
+        selenideXpathTextAlternative: selectors.selenideXpathTextAlternative,
+        selectorMeta: {
+            ...selectors.selectorMeta,
+            selenideXpathTextAlternative: { strategy: "text", stability: "medium" }
+        }
+      }, false) : ""}
+      ${selectors.playwrightTextAlternative ? window.AQT.buildPanelSection("playwrightTextAlternative", {
+        ...selectors,
+        playwrightTextAlternative: selectors.playwrightTextAlternative,
+        selectorMeta: {
+            ...selectors.selectorMeta,
+            playwrightTextAlternative: { strategy: "text", stability: "medium" }
+        }
+      }, false) : ""}
 
       <button
         class="aqt-panel-copy"

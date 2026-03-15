@@ -503,6 +503,10 @@ window.AQT.generateSelectors = function (elementInfo, element) {
         playwright: { value: "", strategy: "", stability: "weak" }
     };
 
+    let xpathTextAlternative = "";
+    let selenideXpathTextAlternative = "";
+    let playwrightTextAlternative = "";
+
     const qaAttr = window.AQT.getFirstQaAttribute(elementInfo);
 
     if (qaAttr) {
@@ -657,6 +661,14 @@ window.AQT.generateSelectors = function (elementInfo, element) {
             strategy: "href",
             stability: "medium"
         };
+
+        const textBasedSelectors = window.AQT.getTextBasedSelectors(element, tag);
+
+        if (textBasedSelectors && textBasedSelectors.xpath !== selectorMeta.xpath.value) {
+            xpathTextAlternative = textBasedSelectors.xpath;
+            selenideXpathTextAlternative = `$x("${textBasedSelectors.xpath}")`;
+            playwrightTextAlternative = textBasedSelectors.playwright;
+        }
     } else {
         const textBasedSelectors = window.AQT.getTextBasedSelectors(element, tag);
 
@@ -786,7 +798,13 @@ window.AQT.generateSelectors = function (elementInfo, element) {
 ` +
         `Selenide XPath [${selectorMeta.selenideXpath.stability}]: ${selectorMeta.selenideXpath.value}
 ` +
-        `Playwright [${selectorMeta.playwright.stability}]: ${selectorMeta.playwright.value}`;
+        `Playwright [${selectorMeta.playwright.stability}]: ${selectorMeta.playwright.value}` +
+        (xpathTextAlternative ? `
+XPath (text alt) [medium]: ${xpathTextAlternative}` : "") +
+        (selenideXpathTextAlternative ? `
+Selenide XPath (text alt) [medium]: ${selenideXpathTextAlternative}` : "") +
+        (playwrightTextAlternative ? `
+Playwright (text alt) [medium]: ${playwrightTextAlternative}` : "");
 
     return {
         strategy,
@@ -801,6 +819,9 @@ window.AQT.generateSelectors = function (elementInfo, element) {
         selenide: selectorMeta.selenideXpath.value,
         playwright: selectorMeta.playwright.value,
         selectorMeta,
+        xpathTextAlternative,
+        selenideXpathTextAlternative,
+        playwrightTextAlternative,
         allSelectorsText
     };
 };

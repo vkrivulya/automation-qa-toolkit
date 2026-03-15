@@ -41,6 +41,9 @@ function getSelectorTitle(key) {
         xpath: "XPath",
         selenideCss: "Selenide CSS",
         selenideXpath: "Selenide XPath",
+        xpathTextAlternative: "XPath (text alt)",
+        selenideXpathTextAlternative: "Selenide XPath (text alt)",
+        playwrightTextAlternative: "Playwright (text alt)",
         playwright: "Playwright"
     };
 
@@ -72,6 +75,12 @@ function renderResult(selectors) {
         .map((key) => renderSelectorRow(selectors, key, key === recommendedKey))
         .join("");
 
+    const altRows = [
+        selectors.xpathTextAlternative ? renderSelectorRow({ ...selectors, xpathTextAlternative: selectors.xpathTextAlternative, selectorMeta: { ...selectors.selectorMeta, xpathTextAlternative: { strategy: "text", stability: "medium" } } }, "xpathTextAlternative", false) : "",
+        selectors.selenideXpathTextAlternative ? renderSelectorRow({ ...selectors, selenideXpathTextAlternative: selectors.selenideXpathTextAlternative, selectorMeta: { ...selectors.selectorMeta, selenideXpathTextAlternative: { strategy: "text", stability: "medium" } } }, "selenideXpathTextAlternative", false) : "",
+        selectors.playwrightTextAlternative ? renderSelectorRow({ ...selectors, playwrightTextAlternative: selectors.playwrightTextAlternative, selectorMeta: { ...selectors.selectorMeta, playwrightTextAlternative: { strategy: "text", stability: "medium" } } }, "playwrightTextAlternative", false) : ""
+    ].join("");
+
     resultContainer.innerHTML = `
     <div class="result-card">
       <div class="result-row-head">
@@ -80,6 +89,7 @@ function renderResult(selectors) {
       </div>
 
       ${rows}
+      ${altRows}
 
       <div class="result-row">
         <button class="copy-button" data-copy="${escapeAttribute(selectors.allSelectorsText)}">Copy All</button>
