@@ -30,6 +30,11 @@ function renderResult(selectors) {
       </div>
 
       <div class="result-row">
+        <span class="result-label">Stability</span>
+        <div class="result-value">${escapeHtml(selectors.stability || "unknown")}</div>
+      </div>
+
+      <div class="result-row">
         <span class="result-label">CSS</span>
         <div class="result-value">${escapeHtml(selectors.css)}</div>
         <button class="copy-button" data-copy="${escapeAttribute(selectors.css)}">Copy CSS</button>

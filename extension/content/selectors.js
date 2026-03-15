@@ -124,14 +124,31 @@ window.AQT.buildElementInfo = function (element) {
     };
 };
 
+window.AQT.getSelectorStability = function (strategy) {
+    const map = {
+        "data-e2e": "high",
+        "data-testid": "high",
+        "data-test": "high",
+        "id": "medium",
+        "name": "medium",
+        "class": "low",
+        "tag": "low"
+    };
+
+    return map[strategy] || "low";
+};
+
 window.AQT.buildSelectorsResult = function (strategy, css, xpath) {
     const jsCss = window.AQT.escapeJsSingleQuoteValue(css);
 
     const selenide = `$('${jsCss}')`;
     const playwright = `page.locator('${jsCss}')`;
 
+    const stability = window.AQT.getSelectorStability(strategy);
+
     const allSelectorsText =
         `Strategy: ${strategy}
+Stability: ${stability}
 CSS: ${css}
 XPath: ${xpath}
 Selenide: ${selenide}
@@ -139,6 +156,7 @@ Playwright: ${playwright}`;
 
     return {
         strategy,
+        stability,
         css,
         xpath,
         selenide,
