@@ -21,37 +21,76 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 });
 
+function getStabilityView(stability) {
+    const normalized = String(stability || "weak").toLowerCase();
+
+    if (normalized === "stable") {
+        return { key: "stable", label: "Stable" };
+    }
+
+    if (normalized === "medium") {
+        return { key: "medium", label: "Medium" };
+    }
+
+    return { key: "weak", label: "Weak" };
+}
+
+function getSelectorTitle(key) {
+    const titles = {
+        css: "CSS",
+        xpath: "XPath",
+        selenideCss: "Selenide CSS",
+        selenideXpath: "Selenide XPath",
+        xpathTextAlternative: "XPath (text alt)",
+        selenideXpathTextAlternative: "Selenide XPath (text alt)",
+        playwrightTextAlternative: "Playwright (text alt)",
+        playwright: "Playwright"
+    };
+
+    return titles[key] || key;
+}
+
+function renderSelectorRow(selectors, key, recommended) {
+    const value = selectors[key] || "";
+    const meta = selectors.selectorMeta?.[key];
+    const stability = getStabilityView(meta?.stability);
+
+    return `
+      <div class="result-row ${recommended ? "result-row-recommended" : ""}">
+        <div class="result-row-head">
+            <span class="result-label">${recommended ? "Recommended · " : ""}${escapeHtml(getSelectorTitle(key))}</span>
+            <span class="result-stability result-stability-${escapeHtml(stability.key)}">${escapeHtml(stability.label)}</span>
+        </div>
+        <div class="result-value">${escapeHtml(value)}</div>
+        <button class="copy-button" data-copy="${escapeAttribute(value)}">Copy ${escapeHtml(getSelectorTitle(key))}</button>
+      </div>
+    `;
+}
+
 function renderResult(selectors) {
+    const orderedKeys = selectors.orderedSelectorKeys || ["css", "xpath", "selenideCss", "selenideXpath", "playwright"];
+    const recommendedKey = selectors.recommendedKey || orderedKeys[0] || "css";
+
+    const rows = orderedKeys
+        .map((key) => renderSelectorRow(selectors, key, key === recommendedKey))
+        .join("");
+
+    const altRows = [
+        selectors.xpathTextAlternative ? renderSelectorRow({ ...selectors, xpathTextAlternative: selectors.xpathTextAlternative, selectorMeta: { ...selectors.selectorMeta, xpathTextAlternative: { strategy: "text", stability: "medium" } } }, "xpathTextAlternative", false) : "",
+        selectors.selenideXpathTextAlternative ? renderSelectorRow({ ...selectors, selenideXpathTextAlternative: selectors.selenideXpathTextAlternative, selectorMeta: { ...selectors.selectorMeta, selenideXpathTextAlternative: { strategy: "text", stability: "medium" } } }, "selenideXpathTextAlternative", false) : "",
+        selectors.playwrightTextAlternative ? renderSelectorRow({ ...selectors, playwrightTextAlternative: selectors.playwrightTextAlternative, selectorMeta: { ...selectors.selectorMeta, playwrightTextAlternative: { strategy: "text", stability: "medium" } } }, "playwrightTextAlternative", false) : ""
+    ].join("");
+
     resultContainer.innerHTML = `
     <div class="result-card">
-      <div class="result-row">
+      <div class="result-row-head">
         <span class="result-label">Strategy</span>
-        <div class="result-value">${escapeHtml(selectors.strategy)}</div>
+        <div class="result-value-inline">${escapeHtml(selectors.strategy)}</div>
       </div>
 
-      <div class="result-row">
-        <span class="result-label">CSS</span>
-        <div class="result-value">${escapeHtml(selectors.css)}</div>
-        <button class="copy-button" data-copy="${escapeAttribute(selectors.css)}">Copy CSS</button>
-      </div>
-      
-      <div class="result-row">
-        <span class="result-label">XPath</span>
-        <div class="result-value">${escapeHtml(selectors.xpath)}</div>
-        <button class="copy-button" data-copy="${escapeAttribute(selectors.xpath)}">Copy XPath</button>
-      </div>
+      ${rows}
+      ${altRows}
 
-      <div class="result-row">
-        <span class="result-label">Selenide</span>
-        <div class="result-value">${escapeHtml(selectors.selenide)}</div>
-        <button class="copy-button" data-copy="${escapeAttribute(selectors.selenide)}">Copy Selenide</button>
-      </div>
-
-      <div class="result-row">
-        <span class="result-label">Playwright</span>
-        <div class="result-value">${escapeHtml(selectors.playwright)}</div>
-        <button class="copy-button" data-copy="${escapeAttribute(selectors.playwright)}">Copy Playwright</button>
-      </div>
       <div class="result-row">
         <button class="copy-button" data-copy="${escapeAttribute(selectors.allSelectorsText)}">Copy All</button>
       </div>

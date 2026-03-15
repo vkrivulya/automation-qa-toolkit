@@ -1,5 +1,34 @@
 window.AQT = window.AQT || {};
 
+window.AQT.getStabilityView = function (stability) {
+    const normalized = String(stability || "weak").toLowerCase();
+
+    if (normalized === "stable") {
+        return { key: "stable", label: "Stable" };
+    }
+
+    if (normalized === "medium") {
+        return { key: "medium", label: "Medium" };
+    }
+
+    return { key: "weak", label: "Weak" };
+};
+
+window.AQT.getSelectorTitle = function (key) {
+    const titles = {
+        css: "CSS",
+        xpath: "XPath",
+        selenideCss: "Selenide CSS",
+        selenideXpath: "Selenide XPath",
+        xpathTextAlternative: "XPath (text alt)",
+        selenideXpathTextAlternative: "Selenide XPath (text alt)",
+        playwrightTextAlternative: "Playwright (text alt)",
+        playwright: "Playwright"
+    };
+
+    return titles[key] || key;
+};
+
 window.AQT.showToast = function (message) {
     const existingToast = document.getElementById("aqt-toast");
 
@@ -21,14 +50,26 @@ window.AQT.showToast = function (message) {
     }, 2000);
 };
 
-window.AQT.buildPanelSection = function (title, value, buttonText) {
+window.AQT.buildPanelSection = function (key, selectors, isRecommended) {
     const escapeHtml = window.AQT.escapeHtml;
     const escapeAttribute = window.AQT.escapeAttribute;
+    const title = window.AQT.getSelectorTitle(key);
+    const value = selectors[key] || "";
+    const meta = selectors.selectorMeta?.[key];
+    const stabilityView = window.AQT.getStabilityView(meta?.stability);
 
     return `
-    <div class="aqt-panel-section">
-      <div class="aqt-panel-section-title">
-        ${escapeHtml(title)}
+    <div class="aqt-panel-section ${isRecommended ? "aqt-panel-section-recommended" : ""}">
+      <div class="aqt-panel-section-title-row">
+        <div class="aqt-panel-section-title-wrap">
+          <div class="aqt-panel-section-title">
+            ${isRecommended ? "Recommended · " : ""}${escapeHtml(title)}
+          </div>
+          ${isRecommended ? `<div class="aqt-panel-section-hint">Best strategy: ${escapeHtml(selectors.strategy)}</div>` : ""}
+        </div>
+        <div class="aqt-stability-badge aqt-stability-${escapeHtml(stabilityView.key)}">
+          ${escapeHtml(stabilityView.label)}
+        </div>
       </div>
 
       <div class="aqt-panel-code">
@@ -36,10 +77,10 @@ window.AQT.buildPanelSection = function (title, value, buttonText) {
       </div>
 
       <button
-        class="aqt-panel-copy"
+        class="aqt-panel-inline-copy"
         data-copy="${escapeAttribute(value)}"
       >
-        ${escapeHtml(buttonText)}
+        Copy
       </button>
     </div>
   `;
@@ -100,8 +141,15 @@ window.AQT.showFloatingPanel = function (selectors) {
         existingPanel.remove();
     }
 
-    const buildPanelSection = window.AQT.buildPanelSection;
     const escapeHtml = window.AQT.escapeHtml;
+    const orderedKeys = selectors.orderedSelectorKeys || ["css", "xpath", "selenideCss", "selenideXpath", "playwright"];
+    const recommendedKey = selectors.recommendedKey || orderedKeys[0] || "css";
+
+    const recommendedSection = window.AQT.buildPanelSection(recommendedKey, selectors, true);
+    const otherSections = orderedKeys
+        .filter((key) => key !== recommendedKey)
+        .map((key) => window.AQT.buildPanelSection(key, selectors, false))
+        .join("");
 
     const panel = document.createElement("div");
     panel.id = "aqt-floating-panel";
@@ -122,19 +170,39 @@ window.AQT.showFloatingPanel = function (selectors) {
         <div class="aqt-block-label">STRATEGY</div>
         <div class="aqt-strategy-badge">${escapeHtml(selectors.strategy)}</div>
       </div>
-      
-      <div class="aqt-strategy-block">
-        <div class="aqt-block-label">STABILITY</div>
-        <div class="aqt-stability-badge aqt-stability-${escapeHtml(selectors.stability)}">
-            ${escapeHtml(selectors.stability)}
-        </div>
-      </div>
 
-      ${buildPanelSection("CSS", selectors.css, "Copy CSS")}
-      ${buildPanelSection("XPath", selectors.xpath, "Copy XPath")}
-      ${buildPanelSection("Selenide", selectors.selenide, "Copy Selenide")}
-      ${buildPanelSection("Playwright", selectors.playwright, "Copy Playwright")}
-      
+      ${recommendedSection}
+
+      <details class="aqt-more-selectors" open>
+        <summary>Other selectors</summary>
+        ${otherSections}
+      </details>
+
+      ${selectors.xpathTextAlternative ? window.AQT.buildPanelSection("xpathTextAlternative", {
+        ...selectors,
+        xpathTextAlternative: selectors.xpathTextAlternative,
+        selectorMeta: {
+            ...selectors.selectorMeta,
+            xpathTextAlternative: { strategy: "text", stability: "medium" }
+        }
+      }, false) : ""}
+      ${selectors.selenideXpathTextAlternative ? window.AQT.buildPanelSection("selenideXpathTextAlternative", {
+        ...selectors,
+        selenideXpathTextAlternative: selectors.selenideXpathTextAlternative,
+        selectorMeta: {
+            ...selectors.selectorMeta,
+            selenideXpathTextAlternative: { strategy: "text", stability: "medium" }
+        }
+      }, false) : ""}
+      ${selectors.playwrightTextAlternative ? window.AQT.buildPanelSection("playwrightTextAlternative", {
+        ...selectors,
+        playwrightTextAlternative: selectors.playwrightTextAlternative,
+        selectorMeta: {
+            ...selectors.selectorMeta,
+            playwrightTextAlternative: { strategy: "text", stability: "medium" }
+        }
+      }, false) : ""}
+
       <button
         class="aqt-panel-copy"
         data-copy="${window.AQT.escapeAttribute(selectors.allSelectorsText)}"

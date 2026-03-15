@@ -89,11 +89,19 @@
     margin-bottom: 18px;
 }
 
+.aqt-panel-section-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 0;
+}
+
 .aqt-panel-section-title {
     font-size: 13px;
     font-weight: 700;
     color: #374151;
-    margin-bottom: 6px;
+    margin-bottom: 0;
 }
 
 .aqt-panel-code {
@@ -183,3 +191,46 @@
 /*    color: #6b7280;*/
 /*}*/
 
+
+
+.aqt-panel-section-title-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.aqt-panel-section-hint {
+    font-size: 11px;
+    color: #6b7280;
+}
+
+.aqt-panel-section-recommended {
+    border: 1px solid #bbf7d0;
+    background: #f0fdf4;
+    border-radius: 14px;
+    padding: 10px;
+}
+
+.aqt-panel-inline-copy {
+    margin-top: 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    padding: 7px 10px;
+    background: #ffffff;
+    color: #111827;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.aqt-more-selectors {
+    margin-bottom: 14px;
+}
+
+.aqt-more-selectors > summary {
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 700;
+    color: #4b5563;
+    margin-bottom: 10px;
+}
