@@ -17,6 +17,20 @@ window.AQT.qaAttributePriority = [
     "data-selector"
 ];
 
+window.AQT.findBestDescendantTarget = function (element) {
+    if (!element || !element.querySelector) {
+        return null;
+    }
+
+    const qaSelector = window.AQT.qaAttributePriority
+        .map((attr) => `[${attr}]`)
+        .join(", ");
+
+    const preferredSelector = `${qaSelector}, a, button, input, select, textarea`;
+
+    return element.querySelector(preferredSelector);
+};
+
 window.AQT.getBestTarget = function (element) {
     const clickableTags = ["BUTTON", "A", "INPUT", "SELECT", "TEXTAREA"];
 
@@ -43,6 +57,12 @@ window.AQT.getBestTarget = function (element) {
         }
 
         current = current.parentElement;
+    }
+
+    const descendantTarget = window.AQT.findBestDescendantTarget(element);
+
+    if (descendantTarget) {
+        return descendantTarget;
     }
 
     return element;
