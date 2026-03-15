@@ -946,9 +946,13 @@ window.AQT.formatFrameworkLocator = function (framework, language, candidate) {
     const xpathDoubleQuoted = String(xpath).replace(/"/g, '\\"');
 
     if (framework === "selenide") {
+        const cssSelectorForSelenide = css
+            .replace(/"/g, "'")
+            .replace(/\\/g, "\\\\");
+
         return candidate.type === "xpath"
             ? `$x("${xpathDoubleQuoted}")`
-            : `$('${cssSingleQuoted}')`;
+            : `$("${cssSelectorForSelenide}")`;
     }
 
     if (framework === "selenium") {
