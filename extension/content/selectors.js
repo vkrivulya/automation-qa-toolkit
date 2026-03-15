@@ -31,7 +31,13 @@ window.AQT.getBestTarget = function (element) {
             const hasQaAttribute = window.AQT.qaAttributePriority
                 .some((attr) => current.getAttribute(attr));
 
-            if (hasQaAttribute || current.id || current.getAttribute("aria-label") || current.getAttribute("name")) {
+            if (
+                hasQaAttribute ||
+                current.id ||
+                current.getAttribute("aria-label") ||
+                current.getAttribute("name") ||
+                current.getAttribute("href")
+            ) {
                 return current;
             }
         }
@@ -62,6 +68,7 @@ window.AQT.buildElementInfo = function (element) {
         ariaLabel: element.getAttribute("aria-label"),
         alt: element.getAttribute("alt"),
         title: element.getAttribute("title"),
+        href: element.getAttribute("href"),
         role: element.getAttribute("role"),
         name: element.getAttribute("name")
     };
@@ -405,6 +412,17 @@ window.AQT.isLikelyGeneratedId = function (idValue) {
     );
 };
 
+window.AQT.isUsefulHref = function (hrefValue) {
+    if (!hrefValue) return false;
+
+    const href = String(hrefValue).trim();
+
+    if (!href || href === "#") return false;
+    if (href.startsWith("javascript:")) return false;
+
+    return true;
+};
+
 window.AQT.getSelectorQualityScore = function (selectors, sourceElement) {
     if (!selectors || !selectors.recommendedKey || !selectors.selectorMeta) {
         return -1;
@@ -421,6 +439,7 @@ window.AQT.getSelectorQualityScore = function (selectors, sourceElement) {
     if (strategy.startsWith("data-")) score += 50;
     if (strategy === "id") score += 40;
     if (strategy === "alt" || strategy === "aria-label" || strategy === "role+name") score += 35;
+    if (strategy === "href") score += 30;
     if (strategy === "text") score += 25;
     if (strategy === "name") score += 20;
     if (strategy === "class" || strategy === "class*") score += 10;
@@ -580,6 +599,36 @@ window.AQT.generateSelectors = function (elementInfo, element) {
                 ? `page.getByRole('${window.AQT.escapeJsSingleQuotedString(elementInfo.role)}', { name: '${escapedJs}', exact: true })`
                 : `page.getByLabel('${escapedJs}', { exact: true })`,
             strategy: "role+name",
+            stability: "medium"
+        };
+    } else if (tag === "a" && window.AQT.isUsefulHref(elementInfo.href)) {
+        const escapedHrefCss = window.AQT.escapeCssValue(elementInfo.href);
+        const escapedHrefXpath = window.AQT.escapeXpathValue(elementInfo.href);
+        const escapedHrefJs = window.AQT.escapeJsSingleQuotedString(elementInfo.href);
+
+        selectorMeta.css = {
+            value: `a[href="${escapedHrefCss}"]`,
+            strategy: "href",
+            stability: "medium"
+        };
+        selectorMeta.xpath = {
+            value: `//a[@href=${escapedHrefXpath}]`,
+            strategy: "href",
+            stability: "medium"
+        };
+        selectorMeta.selenideCss = {
+            value: `$('a[href="${escapedHrefJs}"]')`,
+            strategy: "href",
+            stability: "medium"
+        };
+        selectorMeta.selenideXpath = {
+            value: `$x("//a[@href=${escapedHrefXpath}]")`,
+            strategy: "href",
+            stability: "medium"
+        };
+        selectorMeta.playwright = {
+            value: `page.locator('a[href="${escapedHrefJs}"]')`,
+            strategy: "href",
             stability: "medium"
         };
     } else {
