@@ -4,14 +4,14 @@ window.AQT.getStabilityView = function (stability) {
     const normalized = String(stability || "weak").toLowerCase();
 
     if (normalized === "stable") {
-        return { key: "stable", label: "🟢 Stable" };
+        return { key: "stable", label: "Stable" };
     }
 
     if (normalized === "medium") {
-        return { key: "medium", label: "🟡 Medium" };
+        return { key: "medium", label: "Medium" };
     }
 
-    return { key: "weak", label: "🔴 Weak" };
+    return { key: "weak", label: "Weak" };
 };
 
 window.AQT.getSelectorTitle = function (key) {
@@ -60,7 +60,7 @@ window.AQT.buildPanelSection = function (key, selectors, isRecommended) {
       <div class="aqt-panel-section-title-row">
         <div class="aqt-panel-section-title-wrap">
           <div class="aqt-panel-section-title">
-            ${isRecommended ? "✅ Recommended · " : ""}${escapeHtml(title)}
+            ${isRecommended ? "Recommended · " : ""}${escapeHtml(title)}
           </div>
           ${isRecommended ? `<div class="aqt-panel-section-hint">Best strategy: ${escapeHtml(selectors.strategy)}</div>` : ""}
         </div>

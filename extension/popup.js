@@ -25,14 +25,14 @@ function getStabilityView(stability) {
     const normalized = String(stability || "weak").toLowerCase();
 
     if (normalized === "stable") {
-        return { key: "stable", label: "🟢 Stable" };
+        return { key: "stable", label: "Stable" };
     }
 
     if (normalized === "medium") {
-        return { key: "medium", label: "🟡 Medium" };
+        return { key: "medium", label: "Medium" };
     }
 
-    return { key: "weak", label: "🔴 Weak" };
+    return { key: "weak", label: "Weak" };
 }
 
 function getSelectorTitle(key) {
@@ -55,7 +55,7 @@ function renderSelectorRow(selectors, key, recommended) {
     return `
       <div class="result-row ${recommended ? "result-row-recommended" : ""}">
         <div class="result-row-head">
-            <span class="result-label">${recommended ? "✅ Recommended · " : ""}${escapeHtml(getSelectorTitle(key))}</span>
+            <span class="result-label">${recommended ? "Recommended · " : ""}${escapeHtml(getSelectorTitle(key))}</span>
             <span class="result-stability result-stability-${escapeHtml(stability.key)}">${escapeHtml(stability.label)}</span>
         </div>
         <div class="result-value">${escapeHtml(value)}</div>
