@@ -16,6 +16,7 @@ window.AQT.getBestTarget = function (element) {
                 current.getAttribute("data-e2e") ||
                 current.getAttribute("data-testid") ||
                 current.getAttribute("data-test") ||
+                current.getAttribute("data-qa") ||
                 current.id ||
                 current.getAttribute("name")
             )
@@ -38,6 +39,7 @@ window.AQT.buildElementInfo = function (element) {
         dataE2e: element.getAttribute("data-e2e"),
         dataTest: element.getAttribute("data-test"),
         dataTestId: element.getAttribute("data-testid"),
+        dataQa: element.getAttribute("data-qa"),
         name: element.getAttribute("name")
     };
 };
@@ -352,11 +354,12 @@ window.AQT.generateSelectors = function (elementInfo, element) {
         playwright: { value: "", strategy: "", stability: "weak" }
     };
 
-    if (elementInfo.dataE2e || elementInfo.dataTestId || elementInfo.dataTest || elementInfo.id || elementInfo.name) {
+    if (elementInfo.dataE2e || elementInfo.dataTestId || elementInfo.dataTest || elementInfo.dataQa || elementInfo.id || elementInfo.name) {
         const attrPriority = [
             { key: "dataE2e", attr: "data-e2e", strategy: "data-e2e", stability: "stable" },
             { key: "dataTestId", attr: "data-testid", strategy: "data-testid", stability: "stable" },
             { key: "dataTest", attr: "data-test", strategy: "data-test", stability: "stable" },
+            { key: "dataQa", attr: "data-qa", strategy: "data-qa", stability: "stable" },
             { key: "id", attr: "id", strategy: "id", stability: "stable", isId: true },
             { key: "name", attr: "name", strategy: "name", stability: "medium" }
         ];
