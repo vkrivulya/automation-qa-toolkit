@@ -74,14 +74,24 @@ window.AQT.buildElementInfo = function (element) {
     };
 };
 
-window.AQT.escapeCssValue = function (value) {
+window.AQT.escapeCssIdentifier = function (value) {
     if (value == null) return "";
 
     if (typeof CSS !== "undefined" && CSS.escape) {
         return CSS.escape(String(value));
     }
 
-    return String(value).replace(/(["'\\\]\[])/g, "\\$1");
+    return String(value).replace(/([^a-zA-Z0-9_-])/g, "\\$1");
+};
+
+window.AQT.escapeCssValue = function (value) {
+    if (value == null) return "";
+
+    return String(value)
+        .replace(/\\/g, "\\\\")
+        .replace(/"/g, "\\\"")
+        .replace(/\n/g, "\\n")
+        .replace(/\r/g, "\\r");
 };
 
 window.AQT.escapeXpathValue = function (value) {
@@ -148,6 +158,22 @@ window.AQT.selectorPriorityRank = function (key) {
     return ranks[key] || 0;
 };
 
+window.AQT.strategyRank = function (strategy) {
+    if (!strategy) return 0;
+
+    if (strategy.startsWith("data-")) return 80;
+    if (strategy === "id") return 70;
+    if (strategy === "role+name" || strategy === "aria-label" || strategy === "alt") return 60;
+    if (strategy === "text") return 55;
+    if (strategy === "href") return 45;
+    if (strategy === "name") return 40;
+    if (strategy === "class") return 30;
+    if (strategy === "class*") return 25;
+    if (strategy === "tag+nth") return 10;
+
+    return 20;
+};
+
 window.AQT.stabilityRank = function (stability) {
     const ranks = {
         stable: 3,
@@ -167,7 +193,7 @@ window.AQT.getUniqueClassSelector = function (element, tag) {
         .filter((className) => className && !window.AQT.isLikelyGeneratedClass(className));
 
     for (const className of classNames) {
-        const selector = `${tag}.${window.AQT.escapeCssValue(className)}`;
+        const selector = `${tag}.${window.AQT.escapeCssIdentifier(className)}`;
 
         if (document.querySelectorAll(selector).length === 1) {
             return selector;
@@ -176,7 +202,7 @@ window.AQT.getUniqueClassSelector = function (element, tag) {
 
     if (classNames.length > 1) {
         const selector = `${tag}.${classNames
-            .map((className) => window.AQT.escapeCssValue(className))
+            .map((className) => window.AQT.escapeCssIdentifier(className))
             .join(".")}`;
 
         if (document.querySelectorAll(selector).length === 1) {
@@ -510,7 +536,7 @@ window.AQT.generateSelectors = function (elementInfo, element) {
             stability: "stable"
         };
     } else if (elementInfo.id && !window.AQT.isLikelyGeneratedId(elementInfo.id)) {
-        const escapedId = window.AQT.escapeCssValue(elementInfo.id);
+        const escapedId = window.AQT.escapeCssIdentifier(elementInfo.id);
         const escapedXpath = window.AQT.escapeXpathValue(elementInfo.id);
         const escapedJs = window.AQT.escapeJsSingleQuotedString(elementInfo.id);
 
@@ -730,6 +756,12 @@ window.AQT.generateSelectors = function (elementInfo, element) {
 
             if (stabilityDiff !== 0) {
                 return stabilityDiff;
+            }
+
+            const strategyDiff = window.AQT.strategyRank(selectorMeta[b].strategy) - window.AQT.strategyRank(selectorMeta[a].strategy);
+
+            if (strategyDiff !== 0) {
+                return strategyDiff;
             }
 
             return window.AQT.selectorPriorityRank(b) - window.AQT.selectorPriorityRank(a);
