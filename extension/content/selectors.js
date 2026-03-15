@@ -1,5 +1,22 @@
 window.AQT = window.AQT || {};
 
+window.AQT.qaAttributePriority = [
+    "data-testid",
+    "data-test-id",
+    "data-cy",
+    "data-test",
+    "data-qa",
+    "data-qa-id",
+    "data-e2e",
+    "data-e2e-id",
+    "data-pw",
+    "data-hook",
+    "data-automation",
+    "data-automation-id",
+    "data-auto",
+    "data-selector"
+];
+
 window.AQT.getBestTarget = function (element) {
     const clickableTags = ["BUTTON", "A", "INPUT", "SELECT", "TEXTAREA"];
 
@@ -10,18 +27,13 @@ window.AQT.getBestTarget = function (element) {
             return current;
         }
 
-        if (
-            current.getAttribute &&
-            (
-                current.getAttribute("data-e2e") ||
-                current.getAttribute("data-testid") ||
-                current.getAttribute("data-test") ||
-                current.getAttribute("data-qa") ||
-                current.id ||
-                current.getAttribute("name")
-            )
-        ) {
-            return current;
+        if (current.getAttribute) {
+            const hasQaAttribute = window.AQT.qaAttributePriority
+                .some((attr) => current.getAttribute(attr));
+
+            if (hasQaAttribute || current.id || current.getAttribute("aria-label") || current.getAttribute("name")) {
+                return current;
+            }
         }
 
         current = current.parentElement;
@@ -31,15 +43,24 @@ window.AQT.getBestTarget = function (element) {
 };
 
 window.AQT.buildElementInfo = function (element) {
+    const qaAttributes = {};
+
+    window.AQT.qaAttributePriority.forEach((attr) => {
+        const value = element.getAttribute(attr);
+
+        if (value) {
+            qaAttributes[attr] = value;
+        }
+    });
+
     return {
         tag: element.tagName,
         id: element.id,
         classes: element.className,
         text: element.innerText,
-        dataE2e: element.getAttribute("data-e2e"),
-        dataTest: element.getAttribute("data-test"),
-        dataTestId: element.getAttribute("data-testid"),
-        dataQa: element.getAttribute("data-qa"),
+        qaAttributes,
+        ariaLabel: element.getAttribute("aria-label"),
+        role: element.getAttribute("role"),
         name: element.getAttribute("name")
     };
 };
@@ -355,6 +376,33 @@ window.AQT.getXpathFallbackMeta = function (element, tag) {
     };
 };
 
+window.AQT.getFirstQaAttribute = function (elementInfo) {
+    if (!elementInfo || !elementInfo.qaAttributes) {
+        return null;
+    }
+
+    for (const attr of window.AQT.qaAttributePriority) {
+        if (elementInfo.qaAttributes[attr]) {
+            return {
+                attr,
+                value: elementInfo.qaAttributes[attr]
+            };
+        }
+    }
+
+    return null;
+};
+
+window.AQT.isLikelyGeneratedId = function (idValue) {
+    if (!idValue) return true;
+
+    return (
+        /__[a-z0-9]+_[a-z0-9]+/i.test(idValue) ||
+        /[a-f0-9]{8,}/i.test(idValue) ||
+        /[0-9]{4,}/.test(idValue)
+    );
+};
+
 window.AQT.generateSelectors = function (elementInfo, element) {
     const tag = elementInfo.tag ? elementInfo.tag.toLowerCase() : "*";
 
@@ -366,69 +414,100 @@ window.AQT.generateSelectors = function (elementInfo, element) {
         playwright: { value: "", strategy: "", stability: "weak" }
     };
 
-    if (elementInfo.dataE2e || elementInfo.dataTestId || elementInfo.dataTest || elementInfo.dataQa || elementInfo.id || elementInfo.name) {
-        const attrPriority = [
-            { key: "dataE2e", attr: "data-e2e", strategy: "data-e2e", stability: "stable" },
-            { key: "dataTestId", attr: "data-testid", strategy: "data-testid", stability: "stable" },
-            { key: "dataTest", attr: "data-test", strategy: "data-test", stability: "stable" },
-            { key: "dataQa", attr: "data-qa", strategy: "data-qa", stability: "stable" },
-            { key: "id", attr: "id", strategy: "id", stability: "stable", isId: true },
-            { key: "name", attr: "name", strategy: "name", stability: "medium" }
-        ];
+    const qaAttr = window.AQT.getFirstQaAttribute(elementInfo);
 
-        const selected = attrPriority.find((item) => elementInfo[item.key]);
+    if (qaAttr) {
+        const escapedCss = window.AQT.escapeCssValue(qaAttr.value);
+        const escapedXpath = window.AQT.escapeXpathValue(qaAttr.value);
+        const escapedJs = window.AQT.escapeJsSingleQuotedString(qaAttr.value);
 
-        if (selected) {
-            const rawValue = elementInfo[selected.key];
-            const escapedCss = window.AQT.escapeCssValue(rawValue);
-            const escapedXpath = window.AQT.escapeXpathValue(rawValue);
-            const escapedJs = window.AQT.escapeJsSingleQuotedString(rawValue);
+        selectorMeta.css = {
+            value: `[${qaAttr.attr}="${escapedCss}"]`,
+            strategy: qaAttr.attr,
+            stability: "stable"
+        };
+        selectorMeta.xpath = {
+            value: `//${tag}[@${qaAttr.attr}=${escapedXpath}]`,
+            strategy: qaAttr.attr,
+            stability: "stable"
+        };
+        selectorMeta.selenideCss = {
+            value: `$('[${qaAttr.attr}="${window.AQT.escapeJsSingleQuotedString(qaAttr.value)}"]')`,
+            strategy: qaAttr.attr,
+            stability: "stable"
+        };
+        selectorMeta.selenideXpath = {
+            value: `$x("//${tag}[@${qaAttr.attr}=${escapedXpath}]")`,
+            strategy: qaAttr.attr,
+            stability: "stable"
+        };
+        selectorMeta.playwright = {
+            value: `page.locator('[${qaAttr.attr}="${escapedJs}"]')`,
+            strategy: qaAttr.attr,
+            stability: "stable"
+        };
+    } else if (elementInfo.id && !window.AQT.isLikelyGeneratedId(elementInfo.id)) {
+        const escapedId = window.AQT.escapeCssValue(elementInfo.id);
+        const escapedXpath = window.AQT.escapeXpathValue(elementInfo.id);
+        const escapedJs = window.AQT.escapeJsSingleQuotedString(elementInfo.id);
 
-            if (selected.isId) {
-                selectorMeta.css = {
-                    value: `#${escapedCss}`,
-                    strategy: selected.strategy,
-                    stability: selected.stability
-                };
-                selectorMeta.playwright = {
-                    value: `page.locator('#${escapedJs}')`,
-                    strategy: selected.strategy,
-                    stability: selected.stability
-                };
-                selectorMeta.selenideCss = {
-                    value: `$("#${window.AQT.escapeJsSingleQuotedString(rawValue)}")`,
-                    strategy: selected.strategy,
-                    stability: selected.stability
-                };
-            } else {
-                selectorMeta.css = {
-                    value: `[${selected.attr}="${escapedCss}"]`,
-                    strategy: selected.strategy,
-                    stability: selected.stability
-                };
-                selectorMeta.playwright = {
-                    value: `page.locator('[${selected.attr}="${escapedJs}"]')`,
-                    strategy: selected.strategy,
-                    stability: selected.stability
-                };
-                selectorMeta.selenideCss = {
-                    value: `$('[${selected.attr}="${window.AQT.escapeJsSingleQuotedString(rawValue)}"]')`,
-                    strategy: selected.strategy,
-                    stability: selected.stability
-                };
-            }
+        selectorMeta.css = {
+            value: `#${escapedId}`,
+            strategy: "id",
+            stability: "stable"
+        };
+        selectorMeta.xpath = {
+            value: `//${tag}[@id=${escapedXpath}]`,
+            strategy: "id",
+            stability: "stable"
+        };
+        selectorMeta.selenideCss = {
+            value: `$("#${escapedJs}")`,
+            strategy: "id",
+            stability: "stable"
+        };
+        selectorMeta.selenideXpath = {
+            value: `$x("//${tag}[@id=${escapedXpath}]")`,
+            strategy: "id",
+            stability: "stable"
+        };
+        selectorMeta.playwright = {
+            value: `page.locator('#${escapedJs}')`,
+            strategy: "id",
+            stability: "stable"
+        };
+    } else if (elementInfo.ariaLabel) {
+        const escapedAria = window.AQT.escapeCssValue(elementInfo.ariaLabel);
+        const escapedXpath = window.AQT.escapeXpathValue(elementInfo.ariaLabel);
+        const escapedJs = window.AQT.escapeJsSingleQuotedString(elementInfo.ariaLabel);
 
-            selectorMeta.xpath = {
-                value: `//${tag}[@${selected.attr}=${escapedXpath}]`,
-                strategy: selected.strategy,
-                stability: selected.stability
-            };
-            selectorMeta.selenideXpath = {
-                value: `$x("//${tag}[@${selected.attr}=${escapedXpath}]")`,
-                strategy: selected.strategy,
-                stability: selected.stability
-            };
-        }
+        selectorMeta.css = {
+            value: `[aria-label="${escapedAria}"]`,
+            strategy: "aria-label",
+            stability: "medium"
+        };
+        selectorMeta.xpath = {
+            value: `//${tag}[@aria-label=${escapedXpath}]`,
+            strategy: "aria-label",
+            stability: "medium"
+        };
+        selectorMeta.selenideCss = {
+            value: `$('[aria-label="${window.AQT.escapeJsSingleQuotedString(elementInfo.ariaLabel)}"]')`,
+            strategy: "aria-label",
+            stability: "medium"
+        };
+        selectorMeta.selenideXpath = {
+            value: `$x("//${tag}[@aria-label=${escapedXpath}]")`,
+            strategy: "aria-label",
+            stability: "medium"
+        };
+        selectorMeta.playwright = {
+            value: elementInfo.role
+                ? `page.getByRole('${window.AQT.escapeJsSingleQuotedString(elementInfo.role)}', { name: '${escapedJs}', exact: true })`
+                : `page.getByLabel('${escapedJs}', { exact: true })`,
+            strategy: "role+name",
+            stability: "medium"
+        };
     } else {
         const textBasedSelectors = window.AQT.getTextBasedSelectors(element, tag);
 
@@ -459,6 +538,36 @@ window.AQT.generateSelectors = function (elementInfo, element) {
                 value: textBasedSelectors.playwright,
                 strategy: textBasedSelectors.strategy,
                 stability: textBasedSelectors.stability
+            };
+        } else if (elementInfo.name) {
+            const escapedName = window.AQT.escapeCssValue(elementInfo.name);
+            const escapedXpath = window.AQT.escapeXpathValue(elementInfo.name);
+            const escapedJs = window.AQT.escapeJsSingleQuotedString(elementInfo.name);
+
+            selectorMeta.css = {
+                value: `[name="${escapedName}"]`,
+                strategy: "name",
+                stability: "medium"
+            };
+            selectorMeta.xpath = {
+                value: `//${tag}[@name=${escapedXpath}]`,
+                strategy: "name",
+                stability: "medium"
+            };
+            selectorMeta.selenideCss = {
+                value: `$('[name="${escapedJs}"]')`,
+                strategy: "name",
+                stability: "medium"
+            };
+            selectorMeta.selenideXpath = {
+                value: `$x("//${tag}[@name=${escapedXpath}]")`,
+                strategy: "name",
+                stability: "medium"
+            };
+            selectorMeta.playwright = {
+                value: `page.locator('[name="${escapedJs}"]')`,
+                strategy: "name",
+                stability: "medium"
             };
         } else {
             const cssFallback = window.AQT.getCssFallbackMeta(element, tag);
@@ -538,6 +647,5 @@ window.AQT.generateSelectors = function (elementInfo, element) {
         playwright: selectorMeta.playwright.value,
         selectorMeta,
         allSelectorsText
-    
     };
 };
