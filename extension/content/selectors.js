@@ -57,16 +57,16 @@ window.AQT.escapeXpathValue = function (value) {
 
     const stringValue = String(value);
 
-    if (!stringValue.includes("\"")) {
-        return `"${stringValue}"`;
-    }
-
     if (!stringValue.includes("'")) {
         return `'${stringValue}'`;
     }
 
+    if (!stringValue.includes("\"")) {
+        return `"${stringValue}"`;
+    }
+
     const parts = stringValue.split("\"");
-    const escapedParts = parts.map((part) => `"${part}"`).join(', "\\\"", ');
+    const escapedParts = parts.map((part) => `"${part}"`).join(', "\\"", ');
 
     return `concat(${escapedParts})`;
 };
@@ -245,7 +245,7 @@ window.AQT.getTextBasedSelectors = function (element, tag) {
 
     const escapedTextForXpath = window.AQT.escapeXpathValue(text);
     const escapedTextForJs = window.AQT.escapeJsSingleQuotedString(text);
-    const xpath = `//${tag}[normalize-space(.)=${escapedTextForXpath}]`;
+    const xpath = `//${tag}[normalize-space()=${escapedTextForXpath}]`;
 
     let playwright = `page.getByText('${escapedTextForJs}', { exact: true })`;
 
