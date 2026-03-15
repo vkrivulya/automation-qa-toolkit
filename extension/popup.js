@@ -42,9 +42,15 @@ function renderResult(selectors) {
       </div>
 
       <div class="result-row">
-        <span class="result-label">Selenide</span>
-        <div class="result-value">${escapeHtml(selectors.selenide)}</div>
-        <button class="copy-button" data-copy="${escapeAttribute(selectors.selenide)}">Copy Selenide</button>
+        <span class="result-label">Selenide CSS</span>
+        <div class="result-value">${escapeHtml(selectors.selenideCss || selectors.selenide)}</div>
+        <button class="copy-button" data-copy="${escapeAttribute(selectors.selenideCss || selectors.selenide)}">Copy Selenide CSS</button>
+      </div>
+
+      <div class="result-row">
+        <span class="result-label">Selenide XPath</span>
+        <div class="result-value">${escapeHtml(selectors.selenideXpath || selectors.selenide)}</div>
+        <button class="copy-button" data-copy="${escapeAttribute(selectors.selenideXpath || selectors.selenide)}">Copy Selenide XPath</button>
       </div>
 
       <div class="result-row">

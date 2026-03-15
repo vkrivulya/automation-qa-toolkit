@@ -154,7 +154,8 @@ window.AQT.showFloatingPanel = function (selectors) {
 
       ${buildPanelSection("CSS", selectors.css, "Copy CSS", selectors.selectorMeta?.css)}
       ${buildPanelSection("XPath", selectors.xpath, "Copy XPath", selectors.selectorMeta?.xpath)}
-      ${buildPanelSection("Selenide", selectors.selenide, "Copy Selenide", selectors.selectorMeta?.selenide)}
+      ${buildPanelSection("Selenide CSS", selectors.selenideCss || selectors.selenide, "Copy Selenide CSS", selectors.selectorMeta?.selenideCss)}
+      ${buildPanelSection("Selenide XPath", selectors.selenideXpath || selectors.selenide, "Copy Selenide XPath", selectors.selectorMeta?.selenideXpath)}
       ${buildPanelSection("Playwright", selectors.playwright, "Copy Playwright", selectors.selectorMeta?.playwright)}
       
       <button

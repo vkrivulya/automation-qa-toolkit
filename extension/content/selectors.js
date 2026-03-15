@@ -259,7 +259,6 @@ window.AQT.getTextBasedSelectors = function (element, tag) {
 
     return {
         xpath,
-        selenide: `$x("${xpath}")`,
         playwright,
         strategy: "text",
         stability: "medium"
@@ -350,7 +349,8 @@ window.AQT.generateSelectors = function (elementInfo, element) {
     const selectorMeta = {
         css: { value: "", strategy: "", stability: "weak" },
         xpath: { value: "", strategy: "", stability: "weak" },
-        selenide: { value: "", strategy: "", stability: "weak" },
+        selenideCss: { value: "", strategy: "", stability: "weak" },
+        selenideXpath: { value: "", strategy: "", stability: "weak" },
         playwright: { value: "", strategy: "", stability: "weak" }
     };
 
@@ -383,7 +383,7 @@ window.AQT.generateSelectors = function (elementInfo, element) {
                     strategy: selected.strategy,
                     stability: selected.stability
                 };
-                selectorMeta.selenide = {
+                selectorMeta.selenideCss = {
                     value: `$("#${window.AQT.escapeJsSingleQuotedString(rawValue)}")`,
                     strategy: selected.strategy,
                     stability: selected.stability
@@ -399,7 +399,7 @@ window.AQT.generateSelectors = function (elementInfo, element) {
                     strategy: selected.strategy,
                     stability: selected.stability
                 };
-                selectorMeta.selenide = {
+                selectorMeta.selenideCss = {
                     value: `$('[${selected.attr}="${window.AQT.escapeJsSingleQuotedString(rawValue)}"]')`,
                     strategy: selected.strategy,
                     stability: selected.stability
@@ -408,6 +408,11 @@ window.AQT.generateSelectors = function (elementInfo, element) {
 
             selectorMeta.xpath = {
                 value: `//${tag}[@${selected.attr}=${escapedXpath}]`,
+                strategy: selected.strategy,
+                stability: selected.stability
+            };
+            selectorMeta.selenideXpath = {
+                value: `$x("//${tag}[@${selected.attr}=${escapedXpath}]")`,
                 strategy: selected.strategy,
                 stability: selected.stability
             };
@@ -428,8 +433,13 @@ window.AQT.generateSelectors = function (elementInfo, element) {
                 strategy: textBasedSelectors.strategy,
                 stability: textBasedSelectors.stability
             };
-            selectorMeta.selenide = {
-                value: textBasedSelectors.selenide,
+            selectorMeta.selenideCss = {
+                value: `$("${cssFallback.value}")`,
+                strategy: cssFallback.strategy,
+                stability: cssFallback.stability
+            };
+            selectorMeta.selenideXpath = {
+                value: `$x("${textBasedSelectors.xpath}")`,
                 strategy: textBasedSelectors.strategy,
                 stability: textBasedSelectors.stability
             };
@@ -452,10 +462,15 @@ window.AQT.generateSelectors = function (elementInfo, element) {
                 strategy: xpathFallback.strategy,
                 stability: xpathFallback.stability
             };
-            selectorMeta.selenide = {
+            selectorMeta.selenideCss = {
                 value: `$("${cssFallback.value}")`,
                 strategy: cssFallback.strategy,
                 stability: cssFallback.stability
+            };
+            selectorMeta.selenideXpath = {
+                value: `$x("${xpathFallback.value}")`,
+                strategy: xpathFallback.strategy,
+                stability: xpathFallback.stability
             };
             selectorMeta.playwright = {
                 value: `page.locator('${cssFallback.value}')`,
@@ -472,11 +487,18 @@ window.AQT.generateSelectors = function (elementInfo, element) {
     const stability = selectorMeta[bestKey].stability;
 
     const allSelectorsText =
-        `Best strategy: ${strategy}\n` +
-        `Overall stability: ${stability}\n` +
-        `CSS [${selectorMeta.css.stability}]: ${selectorMeta.css.value}\n` +
-        `XPath [${selectorMeta.xpath.stability}]: ${selectorMeta.xpath.value}\n` +
-        `Selenide [${selectorMeta.selenide.stability}]: ${selectorMeta.selenide.value}\n` +
+        `Best strategy: ${strategy}
+` +
+        `Overall stability: ${stability}
+` +
+        `CSS [${selectorMeta.css.stability}]: ${selectorMeta.css.value}
+` +
+        `XPath [${selectorMeta.xpath.stability}]: ${selectorMeta.xpath.value}
+` +
+        `Selenide CSS [${selectorMeta.selenideCss.stability}]: ${selectorMeta.selenideCss.value}
+` +
+        `Selenide XPath [${selectorMeta.selenideXpath.stability}]: ${selectorMeta.selenideXpath.value}
+` +
         `Playwright [${selectorMeta.playwright.stability}]: ${selectorMeta.playwright.value}`;
 
     return {
@@ -484,7 +506,9 @@ window.AQT.generateSelectors = function (elementInfo, element) {
         stability,
         css: selectorMeta.css.value,
         xpath: selectorMeta.xpath.value,
-        selenide: selectorMeta.selenide.value,
+        selenideCss: selectorMeta.selenideCss.value,
+        selenideXpath: selectorMeta.selenideXpath.value,
+        selenide: selectorMeta.selenideXpath.value,
         playwright: selectorMeta.playwright.value,
         selectorMeta,
         allSelectorsText
