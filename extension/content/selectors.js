@@ -71,13 +71,46 @@ window.AQT.escapeXpathValue = function (value) {
     return `concat(${escapedParts})`;
 };
 
+window.AQT.escapeJsSingleQuotedString = function (value) {
+    if (value == null) return "";
+
+    return String(value)
+        .replace(/\\/g, "\\\\")
+        .replace(/'/g, "\\'")
+        .replace(/\n/g, "\\n")
+        .replace(/\r/g, "\\r");
+};
+
+window.AQT.normalizeText = function (value) {
+    if (value == null) return "";
+
+    return String(value)
+        .replace(/\s+/g, " ")
+        .trim();
+};
+
+window.AQT.isLikelyGeneratedClass = function (className) {
+    if (!className) return true;
+
+    if (/^ng-|^css-|^jsx-|^sc-/.test(className)) {
+        return true;
+    }
+
+    return (
+        /__[a-z0-9]+_[a-z0-9]+/i.test(className) ||
+        /_[a-z0-9]{4,}_[0-9]+$/i.test(className) ||
+        /-[a-z0-9]{6,}$/i.test(className) ||
+        /[0-9]{3,}/.test(className)
+    );
+};
+
 window.AQT.getUniqueClassSelector = function (element, tag) {
     if (!element || !element.classList || !element.classList.length) {
         return "";
     }
 
     const classNames = Array.from(element.classList)
-        .filter((className) => className && !/^ng-|^css-|^jsx-|^sc-/.test(className));
+        .filter((className) => className && !window.AQT.isLikelyGeneratedClass(className));
 
     for (const className of classNames) {
         const selector = `${tag}.${window.AQT.escapeCssValue(className)}`;
@@ -98,6 +131,44 @@ window.AQT.getUniqueClassSelector = function (element, tag) {
     }
 
     return "";
+};
+
+window.AQT.getTextBasedSelectors = function (element, tag) {
+    if (!element) return null;
+
+    const text = window.AQT.normalizeText(element.innerText || element.textContent);
+
+    if (!text || text.length < 2 || text.length > 80) {
+        return null;
+    }
+
+    const candidates = Array.from(document.querySelectorAll(tag))
+        .filter((node) => window.AQT.normalizeText(node.innerText || node.textContent) === text);
+
+    if (candidates.length !== 1) {
+        return null;
+    }
+
+    const escapedTextForXpath = window.AQT.escapeXpathValue(text);
+    const escapedTextForJs = window.AQT.escapeJsSingleQuotedString(text);
+    const xpath = `//${tag}[normalize-space(.)=${escapedTextForXpath}]`;
+
+    let playwright = `page.getByText('${escapedTextForJs}', { exact: true })`;
+
+    if (tag === "button") {
+        playwright = `page.getByRole('button', { name: '${escapedTextForJs}', exact: true })`;
+    } else if (tag === "a") {
+        playwright = `page.getByRole('link', { name: '${escapedTextForJs}', exact: true })`;
+    }
+
+    return {
+        css: window.AQT.getIndexedCssSelector(element, tag),
+        xpath,
+        selenide: `$x("${xpath}")`,
+        playwright,
+        strategy: "text",
+        stability: "🟡 Medium"
+    };
 };
 
 window.AQT.getIndexedCssSelector = function (element, tag) {
@@ -196,26 +267,37 @@ window.AQT.generateSelectors = function (elementInfo, element) {
         strategy = "name";
         stability = "🟡 Medium";
     } else {
-        const uniqueClassSelector = window.AQT.getUniqueClassSelector(element, tag);
+        const textBasedSelectors = window.AQT.getTextBasedSelectors(element, tag);
 
-        if (uniqueClassSelector) {
-            css = uniqueClassSelector;
-            const classNames = uniqueClassSelector.split(".").slice(1);
-            const classPredicate = classNames
-                .map((className) => `contains(concat(" ", normalize-space(@class), " "), ${window.AQT.escapeXpathValue(` ${className} `)})`)
-                .join(" and ");
-            xpath = `//${tag}[${classPredicate}]`;
-            selenide = `$("${uniqueClassSelector}")`;
-            playwright = `page.locator('${uniqueClassSelector}')`;
-            strategy = "class";
-            stability = "🟡 Medium";
+        if (textBasedSelectors) {
+            css = textBasedSelectors.css;
+            xpath = textBasedSelectors.xpath;
+            selenide = textBasedSelectors.selenide;
+            playwright = textBasedSelectors.playwright;
+            strategy = textBasedSelectors.strategy;
+            stability = textBasedSelectors.stability;
         } else {
-            css = window.AQT.getIndexedCssSelector(element, tag);
-            xpath = window.AQT.getIndexedXpath(element, tag);
-            selenide = `$("${css}")`;
-            playwright = `page.locator('${css}')`;
-            strategy = "tag+nth";
-            stability = "🔴 Weak";
+            const uniqueClassSelector = window.AQT.getUniqueClassSelector(element, tag);
+
+            if (uniqueClassSelector) {
+                css = uniqueClassSelector;
+                const classNames = uniqueClassSelector.split(".").slice(1);
+                const classPredicate = classNames
+                    .map((className) => `contains(concat(" ", normalize-space(@class), " "), ${window.AQT.escapeXpathValue(` ${className} `)})`)
+                    .join(" and ");
+                xpath = `//${tag}[${classPredicate}]`;
+                selenide = `$("${uniqueClassSelector}")`;
+                playwright = `page.locator('${uniqueClassSelector}')`;
+                strategy = "class";
+                stability = "🟡 Medium";
+            } else {
+                css = window.AQT.getIndexedCssSelector(element, tag);
+                xpath = window.AQT.getIndexedXpath(element, tag);
+                selenide = `$("${css}")`;
+                playwright = `page.locator('${css}')`;
+                strategy = "tag+nth";
+                stability = "🔴 Weak";
+            }
         }
     }
 
