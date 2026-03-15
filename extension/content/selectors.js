@@ -48,6 +48,7 @@ window.AQT.generateSelectors = function (elementInfo) {
     let selenide = "";
     let playwright = "";
     let strategy = "";
+    let stability = "";
 
     const tag = elementInfo.tag ? elementInfo.tag.toLowerCase() : "*";
 
@@ -57,36 +58,42 @@ window.AQT.generateSelectors = function (elementInfo) {
         selenide = `$("[data-e2e='${elementInfo.dataE2e}']")`;
         playwright = `page.locator('[data-e2e="${elementInfo.dataE2e}"]')`;
         strategy = "data-e2e";
+        stability = "🟢 Stable";
     } else if (elementInfo.dataTestId) {
         css = `[data-testid="${elementInfo.dataTestId}"]`;
         xpath = `//${tag}[@data-testid="${elementInfo.dataTestId}"]`;
         selenide = `$("[data-testid='${elementInfo.dataTestId}']")`;
         playwright = `page.locator('[data-testid="${elementInfo.dataTestId}"]')`;
         strategy = "data-testid";
+        stability = "🟢 Stable";
     } else if (elementInfo.dataTest) {
         css = `[data-test="${elementInfo.dataTest}"]`;
         xpath = `//${tag}[@data-test="${elementInfo.dataTest}"]`;
         selenide = `$("[data-test='${elementInfo.dataTest}']")`;
         playwright = `page.locator('[data-test="${elementInfo.dataTest}"]')`;
         strategy = "data-test";
+        stability = "🟢 Stable";
     } else if (elementInfo.id) {
         css = `#${elementInfo.id}`;
         xpath = `//${tag}[@id="${elementInfo.id}"]`;
         selenide = `$("#${elementInfo.id}")`;
         playwright = `page.locator('#${elementInfo.id}')`;
         strategy = "id";
+        stability = "🟡 Medium";
     } else if (elementInfo.name) {
         css = `[name="${elementInfo.name}"]`;
         xpath = `//${tag}[@name="${elementInfo.name}"]`;
         selenide = `$("[name='${elementInfo.name}']")`;
         playwright = `page.locator('[name="${elementInfo.name}"]')`;
         strategy = "name";
+        stability = "🟡 Medium";
     } else {
         css = tag;
         xpath = `//${tag}`;
         selenide = `$("${tag}")`;
         playwright = `page.locator('${tag}')`;
         strategy = "tag";
+        stability = "🔴 Weak";
     }
 
     const allSelectorsText =
@@ -98,6 +105,7 @@ Playwright: ${playwright}`;
 
     return {
         strategy,
+        stability,
         css,
         xpath,
         selenide,

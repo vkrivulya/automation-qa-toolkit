@@ -122,6 +122,13 @@ window.AQT.showFloatingPanel = function (selectors) {
         <div class="aqt-block-label">STRATEGY</div>
         <div class="aqt-strategy-badge">${escapeHtml(selectors.strategy)}</div>
       </div>
+      
+      <div class="aqt-strategy-block">
+        <div class="aqt-block-label">STABILITY</div>
+        <div class="aqt-stability-badge aqt-stability-${escapeHtml(selectors.stability)}">
+            ${escapeHtml(selectors.stability)}
+        </div>
+      </div>
 
       ${buildPanelSection("CSS", selectors.css, "Copy CSS")}
       ${buildPanelSection("XPath", selectors.xpath, "Copy XPath")}
