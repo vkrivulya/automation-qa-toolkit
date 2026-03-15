@@ -143,6 +143,57 @@ window.AQT.getUniqueClassSelector = function (element, tag) {
     return "";
 };
 
+
+window.AQT.getClassContainsSelector = function (element, tag) {
+    if (!element || !element.classList || !element.classList.length) {
+        return "";
+    }
+
+    const fragmentSet = new Set();
+
+    Array.from(element.classList).forEach((className) => {
+        if (!className) return;
+
+        const normalized = className
+            .replace(/^_+|_+$/g, "")
+            .replace(/[0-9]+/g, " ");
+
+        const rawParts = normalized
+            .split(/[^a-zA-Z]+/)
+            .filter(Boolean);
+
+        rawParts.forEach((part) => {
+            const camelParts = part
+                .split(/(?=[A-Z])/)
+                .filter(Boolean);
+
+            if (part.length >= 6) {
+                fragmentSet.add(part);
+            }
+
+            camelParts.forEach((camelPart) => {
+                if (camelPart.length >= 6) {
+                    fragmentSet.add(camelPart);
+                }
+            });
+        });
+    });
+
+    const fragments = Array.from(fragmentSet)
+        .sort((a, b) => b.length - a.length);
+
+    for (const fragment of fragments) {
+        const escapedFragment = window.AQT.escapeCssValue(fragment);
+        const selector = `${tag}[class*='${escapedFragment}']`;
+
+        if (document.querySelectorAll(selector).length === 1) {
+            return selector;
+        }
+    }
+
+    return "";
+};
+
 window.AQT.getIndexedCssSelector = function (element, tag) {
     if (!element || !element.parentElement) {
         return tag;
@@ -222,6 +273,16 @@ window.AQT.getCssFallbackMeta = function (element, tag) {
         return {
             value: uniqueClassSelector,
             strategy: "class",
+            stability: "medium"
+        };
+    }
+
+    const containsClassSelector = window.AQT.getClassContainsSelector(element, tag);
+
+    if (containsClassSelector) {
+        return {
+            value: containsClassSelector,
+            strategy: "class*",
             stability: "medium"
         };
     }
