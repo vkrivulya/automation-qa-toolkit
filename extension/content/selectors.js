@@ -60,6 +60,8 @@ window.AQT.buildElementInfo = function (element) {
         text: element.innerText,
         qaAttributes,
         ariaLabel: element.getAttribute("aria-label"),
+        alt: element.getAttribute("alt"),
+        title: element.getAttribute("title"),
         role: element.getAttribute("role"),
         name: element.getAttribute("name")
     };
@@ -403,6 +405,48 @@ window.AQT.isLikelyGeneratedId = function (idValue) {
     );
 };
 
+window.AQT.getSelectorQualityScore = function (selectors, sourceElement) {
+    if (!selectors || !selectors.recommendedKey || !selectors.selectorMeta) {
+        return -1;
+    }
+
+    let score = window.AQT.stabilityRank(selectors.stability) * 100;
+
+    if (selectors.recommendedKey === "css") score += 5;
+    if (selectors.recommendedKey === "xpath") score += 4;
+    if (selectors.recommendedKey === "playwright") score += 3;
+
+    const strategy = selectors.strategy || "";
+
+    if (strategy.startsWith("data-")) score += 50;
+    if (strategy === "id") score += 40;
+    if (strategy === "alt" || strategy === "aria-label" || strategy === "role+name") score += 35;
+    if (strategy === "text") score += 25;
+    if (strategy === "name") score += 20;
+    if (strategy === "class" || strategy === "class*") score += 10;
+    if (strategy === "tag+nth") score -= 30;
+
+    if (sourceElement && sourceElement.tagName === "IMG" && strategy === "alt") {
+        score += 20;
+    }
+
+    return score;
+};
+
+window.AQT.pickBetterSelectorCandidate = function (first, second) {
+    if (!first) return second;
+    if (!second) return first;
+
+    const firstScore = window.AQT.getSelectorQualityScore(first.selectors, first.sourceElement);
+    const secondScore = window.AQT.getSelectorQualityScore(second.selectors, second.sourceElement);
+
+    if (secondScore > firstScore) {
+        return second;
+    }
+
+    return first;
+};
+
 window.AQT.generateSelectors = function (elementInfo, element) {
     const tag = elementInfo.tag ? elementInfo.tag.toLowerCase() : "*";
 
@@ -475,6 +519,36 @@ window.AQT.generateSelectors = function (elementInfo, element) {
             value: `page.locator('#${escapedJs}')`,
             strategy: "id",
             stability: "stable"
+        };
+    } else if (tag === "img" && elementInfo.alt) {
+        const escapedAltCss = window.AQT.escapeCssValue(elementInfo.alt);
+        const escapedAltXpath = window.AQT.escapeXpathValue(elementInfo.alt);
+        const escapedAltJs = window.AQT.escapeJsSingleQuotedString(elementInfo.alt);
+
+        selectorMeta.css = {
+            value: `img[alt="${escapedAltCss}"]`,
+            strategy: "alt",
+            stability: "medium"
+        };
+        selectorMeta.xpath = {
+            value: `//img[@alt=${escapedAltXpath}]`,
+            strategy: "alt",
+            stability: "medium"
+        };
+        selectorMeta.selenideCss = {
+            value: `$('img[alt="${escapedAltJs}"]')`,
+            strategy: "alt",
+            stability: "medium"
+        };
+        selectorMeta.selenideXpath = {
+            value: `$x("//img[@alt=${escapedAltXpath}]")`,
+            strategy: "alt",
+            stability: "medium"
+        };
+        selectorMeta.playwright = {
+            value: `page.getByAltText('${escapedAltJs}', { exact: true })`,
+            strategy: "alt",
+            stability: "medium"
         };
     } else if (elementInfo.ariaLabel) {
         const escapedAria = window.AQT.escapeCssValue(elementInfo.ariaLabel);

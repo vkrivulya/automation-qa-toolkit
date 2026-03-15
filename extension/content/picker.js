@@ -56,9 +56,21 @@ window.AQT.selectElement = function (event) {
     event.preventDefault();
     event.stopPropagation();
 
-    const element = window.AQT.getBestTarget(event.target);
-    const elementInfo = window.AQT.buildElementInfo(element);
-    const selectors = window.AQT.generateSelectors(elementInfo, element);
+    const originalElement = event.target;
+    const targetElement = window.AQT.getBestTarget(originalElement);
+
+    const originalInfo = window.AQT.buildElementInfo(originalElement);
+    const originalSelectors = window.AQT.generateSelectors(originalInfo, originalElement);
+
+    const targetInfo = window.AQT.buildElementInfo(targetElement);
+    const targetSelectors = window.AQT.generateSelectors(targetInfo, targetElement);
+
+    const selectedCandidate = window.AQT.pickBetterSelectorCandidate(
+        { selectors: targetSelectors, sourceElement: targetElement },
+        { selectors: originalSelectors, sourceElement: originalElement }
+    );
+
+    const selectors = selectedCandidate?.selectors || targetSelectors;
 
     chrome.storage.local.set({
         lastSelectedElement: selectors
