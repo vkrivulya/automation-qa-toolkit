@@ -58,7 +58,7 @@ window.AQT.selectElement = function (event) {
 
     const element = window.AQT.getBestTarget(event.target);
     const elementInfo = window.AQT.buildElementInfo(element);
-    const selectors = window.AQT.generateSelectors(elementInfo);
+    const selectors = window.AQT.generateSelectors(elementInfo, element);
 
     chrome.storage.local.set({
         lastSelectedElement: selectors

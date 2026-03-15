@@ -42,7 +42,100 @@ window.AQT.buildElementInfo = function (element) {
     };
 };
 
-window.AQT.generateSelectors = function (elementInfo) {
+window.AQT.escapeCssValue = function (value) {
+    if (value == null) return "";
+
+    if (typeof CSS !== "undefined" && CSS.escape) {
+        return CSS.escape(String(value));
+    }
+
+    return String(value).replace(/(["'\\\]\[])/g, "\\$1");
+};
+
+window.AQT.escapeXpathValue = function (value) {
+    if (value == null) return "''";
+
+    const stringValue = String(value);
+
+    if (!stringValue.includes("\"")) {
+        return `"${stringValue}"`;
+    }
+
+    if (!stringValue.includes("'")) {
+        return `'${stringValue}'`;
+    }
+
+    const parts = stringValue.split("\"");
+    const escapedParts = parts.map((part) => `"${part}"`).join(', "\\\"", ');
+
+    return `concat(${escapedParts})`;
+};
+
+window.AQT.getUniqueClassSelector = function (element, tag) {
+    if (!element || !element.classList || !element.classList.length) {
+        return "";
+    }
+
+    const classNames = Array.from(element.classList)
+        .filter((className) => className && !/^ng-|^css-|^jsx-|^sc-/.test(className));
+
+    for (const className of classNames) {
+        const selector = `${tag}.${window.AQT.escapeCssValue(className)}`;
+
+        if (document.querySelectorAll(selector).length === 1) {
+            return selector;
+        }
+    }
+
+    if (classNames.length > 1) {
+        const selector = `${tag}.${classNames
+            .map((className) => window.AQT.escapeCssValue(className))
+            .join(".")}`;
+
+        if (document.querySelectorAll(selector).length === 1) {
+            return selector;
+        }
+    }
+
+    return "";
+};
+
+window.AQT.getIndexedCssSelector = function (element, tag) {
+    if (!element || !element.parentElement) {
+        return tag;
+    }
+
+    const siblings = Array.from(element.parentElement.children)
+        .filter((sibling) => sibling.tagName.toLowerCase() === tag);
+
+    if (siblings.length <= 1) {
+        return tag;
+    }
+
+    const index = siblings.indexOf(element) + 1;
+
+    return `${tag}:nth-of-type(${index})`;
+};
+
+
+window.AQT.getIndexedXpath = function (element, tag) {
+    if (!element || !element.parentElement) {
+        return `//${tag}`;
+    }
+
+    const siblings = Array.from(element.parentElement.children)
+        .filter((sibling) => sibling.tagName.toLowerCase() === tag);
+
+    if (siblings.length <= 1) {
+        return `//${tag}`;
+    }
+
+    const index = siblings.indexOf(element) + 1;
+
+    return `(//${tag})[${index}]`;
+};
+
+window.AQT.generateSelectors = function (elementInfo, element) {
     let css = "";
     let xpath = "";
     let selenide = "";
@@ -53,47 +146,77 @@ window.AQT.generateSelectors = function (elementInfo) {
     const tag = elementInfo.tag ? elementInfo.tag.toLowerCase() : "*";
 
     if (elementInfo.dataE2e) {
-        css = `[data-e2e="${elementInfo.dataE2e}"]`;
-        xpath = `//${tag}[@data-e2e="${elementInfo.dataE2e}"]`;
+        const escaped = window.AQT.escapeCssValue(elementInfo.dataE2e);
+        const escapedXpath = window.AQT.escapeXpathValue(elementInfo.dataE2e);
+
+        css = `[data-e2e="${escaped}"]`;
+        xpath = `//${tag}[@data-e2e=${escapedXpath}]`;
         selenide = `$("[data-e2e='${elementInfo.dataE2e}']")`;
         playwright = `page.locator('[data-e2e="${elementInfo.dataE2e}"]')`;
         strategy = "data-e2e";
         stability = "🟢 Stable";
     } else if (elementInfo.dataTestId) {
-        css = `[data-testid="${elementInfo.dataTestId}"]`;
-        xpath = `//${tag}[@data-testid="${elementInfo.dataTestId}"]`;
+        const escaped = window.AQT.escapeCssValue(elementInfo.dataTestId);
+        const escapedXpath = window.AQT.escapeXpathValue(elementInfo.dataTestId);
+
+        css = `[data-testid="${escaped}"]`;
+        xpath = `//${tag}[@data-testid=${escapedXpath}]`;
         selenide = `$("[data-testid='${elementInfo.dataTestId}']")`;
         playwright = `page.locator('[data-testid="${elementInfo.dataTestId}"]')`;
         strategy = "data-testid";
         stability = "🟢 Stable";
     } else if (elementInfo.dataTest) {
-        css = `[data-test="${elementInfo.dataTest}"]`;
-        xpath = `//${tag}[@data-test="${elementInfo.dataTest}"]`;
+        const escaped = window.AQT.escapeCssValue(elementInfo.dataTest);
+        const escapedXpath = window.AQT.escapeXpathValue(elementInfo.dataTest);
+
+        css = `[data-test="${escaped}"]`;
+        xpath = `//${tag}[@data-test=${escapedXpath}]`;
         selenide = `$("[data-test='${elementInfo.dataTest}']")`;
         playwright = `page.locator('[data-test="${elementInfo.dataTest}"]')`;
         strategy = "data-test";
         stability = "🟢 Stable";
     } else if (elementInfo.id) {
-        css = `#${elementInfo.id}`;
-        xpath = `//${tag}[@id="${elementInfo.id}"]`;
+        const escapedId = window.AQT.escapeCssValue(elementInfo.id);
+        const escapedXpath = window.AQT.escapeXpathValue(elementInfo.id);
+
+        css = `#${escapedId}`;
+        xpath = `//${tag}[@id=${escapedXpath}]`;
         selenide = `$("#${elementInfo.id}")`;
         playwright = `page.locator('#${elementInfo.id}')`;
         strategy = "id";
-        stability = "🟡 Medium";
+        stability = "🟢 Stable";
     } else if (elementInfo.name) {
-        css = `[name="${elementInfo.name}"]`;
-        xpath = `//${tag}[@name="${elementInfo.name}"]`;
+        const escapedName = window.AQT.escapeCssValue(elementInfo.name);
+        const escapedXpath = window.AQT.escapeXpathValue(elementInfo.name);
+
+        css = `[name="${escapedName}"]`;
+        xpath = `//${tag}[@name=${escapedXpath}]`;
         selenide = `$("[name='${elementInfo.name}']")`;
         playwright = `page.locator('[name="${elementInfo.name}"]')`;
         strategy = "name";
         stability = "🟡 Medium";
     } else {
-        css = tag;
-        xpath = `//${tag}`;
-        selenide = `$("${tag}")`;
-        playwright = `page.locator('${tag}')`;
-        strategy = "tag";
-        stability = "🔴 Weak";
+        const uniqueClassSelector = window.AQT.getUniqueClassSelector(element, tag);
+
+        if (uniqueClassSelector) {
+            css = uniqueClassSelector;
+            const classNames = uniqueClassSelector.split(".").slice(1);
+            const classPredicate = classNames
+                .map((className) => `contains(concat(" ", normalize-space(@class), " "), ${window.AQT.escapeXpathValue(` ${className} `)})`)
+                .join(" and ");
+            xpath = `//${tag}[${classPredicate}]`;
+            selenide = `$("${uniqueClassSelector}")`;
+            playwright = `page.locator('${uniqueClassSelector}')`;
+            strategy = "class";
+            stability = "🟡 Medium";
+        } else {
+            css = window.AQT.getIndexedCssSelector(element, tag);
+            xpath = window.AQT.getIndexedXpath(element, tag);
+            selenide = `$("${css}")`;
+            playwright = `page.locator('${css}')`;
+            strategy = "tag+nth";
+            stability = "🔴 Weak";
+        }
     }
 
     const allSelectorsText =
