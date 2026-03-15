@@ -5,6 +5,11 @@ window.AQT.pickerState = {
     highlightedElement: null
 };
 
+window.AQT.isToolkitUiElement = function (element) {
+    if (!element || !element.closest) return false;
+    return Boolean(element.closest("#aqt-floating-panel") || element.closest("#aqt-toast"));
+};
+
 window.AQT.startPicker = function () {
     const state = window.AQT.pickerState;
 
@@ -36,7 +41,7 @@ window.AQT.stopPicker = function () {
 window.AQT.highlightElement = function (event) {
     const state = window.AQT.pickerState;
 
-    if (!state.active) return;
+    if (!state.active || window.AQT.isToolkitUiElement(event.target)) return;
 
     if (state.highlightedElement && state.highlightedElement !== event.target) {
         state.highlightedElement.style.outline = "";
@@ -48,10 +53,10 @@ window.AQT.highlightElement = function (event) {
     state.highlightedElement.style.outlineOffset = "2px";
 };
 
-window.AQT.selectElement = function (event) {
+window.AQT.selectElement = async function (event) {
     const state = window.AQT.pickerState;
 
-    if (!state.active) return;
+    if (!state.active || window.AQT.isToolkitUiElement(event.target)) return;
 
     event.preventDefault();
     event.stopPropagation();
@@ -72,11 +77,11 @@ window.AQT.selectElement = function (event) {
 
     const selectors = selectedCandidate?.selectors || targetSelectors;
 
-    chrome.storage.local.set({
+    await chrome.storage.local.set({
         lastSelectedElement: selectors
     });
 
     window.AQT.stopPicker();
     window.AQT.showToast(`Selector saved: ${selectors.strategy}`);
-    window.AQT.showFloatingPanel(selectors);
+    await window.AQT.showFloatingPanel(selectors);
 };

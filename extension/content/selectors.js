@@ -845,3 +845,213 @@ Playwright (text alt) [medium]: ${playwrightTextAlternative}` : "");
         allSelectorsText
     };
 };
+
+window.AQT.frameworkConfig = {
+    selenide: {
+        title: "Selenide",
+        languages: ["Java", "Kotlin"]
+    },
+    selenium: {
+        title: "Selenium",
+        languages: ["Java", "Python", "JavaScript", "C#"]
+    },
+    webdriverio: {
+        title: "WebdriverIO",
+        languages: ["JavaScript", "TypeScript"]
+    },
+    playwright: {
+        title: "Playwright",
+        languages: ["TypeScript", "JavaScript", "Python", "Java", "C#"]
+    },
+    cypress: {
+        title: "CypressJS",
+        languages: ["JavaScript", "TypeScript"]
+    },
+    robot: {
+        title: "Robot Framework",
+        languages: ["Robot Framework"]
+    },
+    appium: {
+        title: "Appium",
+        languages: ["Java", "Python", "JavaScript"]
+    }
+};
+
+window.AQT.getDefaultSettings = function () {
+    return {
+        framework: "selenide",
+        language: "Java"
+    };
+};
+
+window.AQT.normalizeSettings = function (settings) {
+    const defaults = window.AQT.getDefaultSettings();
+    const frameworkKey = settings?.framework;
+    const framework = window.AQT.frameworkConfig[frameworkKey] ? frameworkKey : defaults.framework;
+    const languagePool = window.AQT.frameworkConfig[framework].languages;
+    const language = languagePool.includes(settings?.language) ? settings.language : languagePool[0];
+
+    return { framework, language };
+};
+
+window.AQT.getFrameworkCandidates = function (selectors, framework) {
+    const meta = selectors.selectorMeta || {};
+    const candidates = {
+        selenide: [
+            { value: selectors.selenideCss, raw: selectors.css, type: "css", meta: meta.selenideCss || meta.css },
+            { value: selectors.selenideXpath, raw: selectors.xpath, type: "xpath", meta: meta.selenideXpath || meta.xpath },
+            selectors.selenideXpathTextAlternative ? { value: selectors.selenideXpathTextAlternative, raw: selectors.xpathTextAlternative, type: "xpath", meta: { stability: "medium", strategy: "text" } } : null
+        ],
+        selenium: [
+            { value: selectors.css, raw: selectors.css, type: "css", meta: meta.css },
+            { value: selectors.xpath, raw: selectors.xpath, type: "xpath", meta: meta.xpath },
+            selectors.xpathTextAlternative ? { value: selectors.xpathTextAlternative, raw: selectors.xpathTextAlternative, type: "xpath", meta: { stability: "medium", strategy: "text" } } : null
+        ],
+        webdriverio: [
+            { value: selectors.css, raw: selectors.css, type: "css", meta: meta.css },
+            { value: selectors.xpath, raw: selectors.xpath, type: "xpath", meta: meta.xpath },
+            selectors.xpathTextAlternative ? { value: selectors.xpathTextAlternative, raw: selectors.xpathTextAlternative, type: "xpath", meta: { stability: "medium", strategy: "text" } } : null
+        ],
+        playwright: [
+            { value: selectors.playwright, raw: selectors.css, type: "playwright", meta: meta.playwright },
+            selectors.playwrightTextAlternative ? { value: selectors.playwrightTextAlternative, raw: selectors.playwrightTextAlternative, type: "playwright", meta: { stability: "medium", strategy: "text" } } : null,
+            { value: selectors.css, raw: selectors.css, type: "css", meta: meta.css }
+        ],
+        cypress: [
+            { value: selectors.css, raw: selectors.css, type: "css", meta: meta.css },
+            { value: selectors.xpath, raw: selectors.xpath, type: "xpath", meta: meta.xpath },
+            selectors.xpathTextAlternative ? { value: selectors.xpathTextAlternative, raw: selectors.xpathTextAlternative, type: "xpath", meta: { stability: "medium", strategy: "text" } } : null
+        ],
+        robot: [
+            { value: selectors.css, raw: selectors.css, type: "css", meta: meta.css },
+            { value: selectors.xpath, raw: selectors.xpath, type: "xpath", meta: meta.xpath }
+        ],
+        appium: [
+            { value: selectors.css, raw: selectors.css, type: "css", meta: meta.css },
+            { value: selectors.xpath, raw: selectors.xpath, type: "xpath", meta: meta.xpath }
+        ]
+    };
+
+    return (candidates[framework] || []).filter(Boolean);
+};
+
+window.AQT.formatFrameworkLocator = function (framework, language, candidate) {
+    if (!candidate || !candidate.value) return "";
+
+    const css = candidate.raw || candidate.value;
+    const xpath = candidate.raw || candidate.value;
+    const cssJs = window.AQT.escapeJsSingleQuotedString(css);
+    const xpathJs = window.AQT.escapeJsSingleQuotedString(xpath);
+
+    if (framework === "selenide") {
+        return candidate.type === "xpath"
+            ? `$x("${window.AQT.escapeJsSingleQuotedString(xpath)}")`
+            : `$("${window.AQT.escapeJsSingleQuotedString(css)}")`;
+    }
+
+    if (framework === "selenium") {
+        if (language === "Python") {
+            return candidate.type === "xpath"
+                ? `driver.find_element(By.XPATH, "${xpath.replace(/"/g, '\\"')}")`
+                : `driver.find_element(By.CSS_SELECTOR, "${css.replace(/"/g, '\\"')}")`;
+        }
+
+        if (language === "JavaScript") {
+            return candidate.type === "xpath"
+                ? `await driver.findElement(By.xpath('${xpathJs}'));`
+                : `await driver.findElement(By.css('${cssJs}'));`;
+        }
+
+        if (language === "C#") {
+            return candidate.type === "xpath"
+                ? `driver.FindElement(By.XPath("${xpath.replace(/"/g, '\\"')}"));`
+                : `driver.FindElement(By.CssSelector("${css.replace(/"/g, '\\"')}"));`;
+        }
+
+        return candidate.type === "xpath"
+            ? `driver.findElement(By.xpath("${xpath.replace(/"/g, '\\"')}"));`
+            : `driver.findElement(By.cssSelector("${css.replace(/"/g, '\\"')}"));`;
+    }
+
+    if (framework === "webdriverio") {
+        return candidate.type === "xpath"
+            ? `const element = await $("${xpath.replace(/"/g, '\\"')}");`
+            : `const element = await $("${css.replace(/"/g, '\\"')}");`;
+    }
+
+    if (framework === "playwright") {
+        if (candidate.type === "playwright") {
+            if (language === "Python") return candidate.value.replace(/^page\./, "page.");
+            return candidate.value;
+        }
+
+        if (language === "Python") {
+            return candidate.type === "xpath"
+                ? `page.locator("xpath=${xpath.replace(/"/g, '\\"')}")`
+                : `page.locator("${css.replace(/"/g, '\\"')}")`;
+        }
+
+        return candidate.type === "xpath"
+            ? `page.locator('xpath=${xpathJs}')`
+            : `page.locator('${cssJs}')`;
+    }
+
+    if (framework === "cypress") {
+        return candidate.type === "xpath"
+            ? `cy.xpath("${xpath.replace(/"/g, '\\"')}")`
+            : `cy.get("${css.replace(/"/g, '\\"')}")`;
+    }
+
+    if (framework === "robot") {
+        return candidate.type === "xpath"
+            ? `Click Element    xpath:${xpath}`
+            : `Click Element    css:${css}`;
+    }
+
+    if (framework === "appium") {
+        if (language === "Python") {
+            return candidate.type === "xpath"
+                ? `driver.find_element(AppiumBy.XPATH, "${xpath.replace(/"/g, '\\"')}")`
+                : `driver.find_element(AppiumBy.CSS_SELECTOR, "${css.replace(/"/g, '\\"')}")`;
+        }
+
+        if (language === "JavaScript") {
+            return candidate.type === "xpath"
+                ? `const element = await driver.$("${xpath.replace(/"/g, '\\"')}");`
+                : `const element = await driver.$("${css.replace(/"/g, '\\"')}");`;
+        }
+
+        return candidate.type === "xpath"
+            ? `driver.findElement(AppiumBy.xpath("${xpath.replace(/"/g, '\\"')}"));`
+            : `driver.findElement(AppiumBy.cssSelector("${css.replace(/"/g, '\\"')}"));`;
+    }
+
+    return candidate.value;
+};
+
+window.AQT.getFrameworkLocatorModel = function (selectors, rawSettings) {
+    const settings = window.AQT.normalizeSettings(rawSettings);
+    const candidates = window.AQT.getFrameworkCandidates(selectors, settings.framework);
+
+    const ordered = [...candidates].sort((a, b) => {
+        const stabilityDiff = window.AQT.stabilityRank(b.meta?.stability) - window.AQT.stabilityRank(a.meta?.stability);
+        if (stabilityDiff !== 0) return stabilityDiff;
+        return window.AQT.strategyRank(b.meta?.strategy) - window.AQT.strategyRank(a.meta?.strategy);
+    });
+
+    const primaryCandidate = ordered[0] || { value: selectors.recommendedSelector || selectors.css || selectors.xpath, raw: selectors.recommendedSelector, type: "css", meta: { stability: selectors.stability, strategy: selectors.strategy } };
+    const alternatives = ordered.slice(1, 3)
+        .map((candidate) => window.AQT.formatFrameworkLocator(settings.framework, settings.language, candidate))
+        .filter(Boolean);
+
+    const primary = window.AQT.formatFrameworkLocator(settings.framework, settings.language, primaryCandidate);
+
+    return {
+        settings,
+        frameworkTitle: window.AQT.frameworkConfig[settings.framework].title,
+        primary,
+        alternatives,
+        strategy: primaryCandidate.meta?.strategy || selectors.strategy,
+        stability: primaryCandidate.meta?.stability || selectors.stability
+    };
+};

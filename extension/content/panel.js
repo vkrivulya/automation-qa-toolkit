@@ -3,92 +3,27 @@ window.AQT = window.AQT || {};
 window.AQT.getStabilityView = function (stability) {
     const normalized = String(stability || "weak").toLowerCase();
 
-    if (normalized === "stable") {
-        return { key: "stable", label: "Stable" };
-    }
-
-    if (normalized === "medium") {
-        return { key: "medium", label: "Medium" };
-    }
+    if (normalized === "stable") return { key: "stable", label: "Stable" };
+    if (normalized === "medium") return { key: "medium", label: "Medium" };
 
     return { key: "weak", label: "Weak" };
 };
 
-window.AQT.getSelectorTitle = function (key) {
-    const titles = {
-        css: "CSS",
-        xpath: "XPath",
-        selenideCss: "Selenide CSS",
-        selenideXpath: "Selenide XPath",
-        xpathTextAlternative: "XPath (text alt)",
-        selenideXpathTextAlternative: "Selenide XPath (text alt)",
-        playwrightTextAlternative: "Playwright (text alt)",
-        playwright: "Playwright"
-    };
-
-    return titles[key] || key;
-};
-
 window.AQT.showToast = function (message) {
     const existingToast = document.getElementById("aqt-toast");
-
-    if (existingToast) {
-        existingToast.remove();
-    }
+    if (existingToast) existingToast.remove();
 
     const toast = document.createElement("div");
     toast.id = "aqt-toast";
     toast.className = "aqt-toast";
     toast.innerText = message;
-
     document.body.appendChild(toast);
 
-    setTimeout(() => {
-        if (toast.parentElement) {
-            toast.remove();
-        }
-    }, 2000);
-};
-
-window.AQT.buildPanelSection = function (key, selectors, isRecommended) {
-    const escapeHtml = window.AQT.escapeHtml;
-    const escapeAttribute = window.AQT.escapeAttribute;
-    const title = window.AQT.getSelectorTitle(key);
-    const value = selectors[key] || "";
-    const meta = selectors.selectorMeta?.[key];
-    const stabilityView = window.AQT.getStabilityView(meta?.stability);
-
-    return `
-    <div class="aqt-panel-section ${isRecommended ? "aqt-panel-section-recommended" : ""}">
-      <div class="aqt-panel-section-title-row">
-        <div class="aqt-panel-section-title-wrap">
-          <div class="aqt-panel-section-title">
-            ${isRecommended ? "Recommended · " : ""}${escapeHtml(title)}
-          </div>
-          ${isRecommended ? `<div class="aqt-panel-section-hint">Best strategy: ${escapeHtml(selectors.strategy)}</div>` : ""}
-        </div>
-        <div class="aqt-stability-badge aqt-stability-${escapeHtml(stabilityView.key)}">
-          ${escapeHtml(stabilityView.label)}
-        </div>
-      </div>
-
-      <div class="aqt-panel-code">
-        ${escapeHtml(value)}
-      </div>
-
-      <button
-        class="aqt-panel-inline-copy"
-        data-copy="${escapeAttribute(value)}"
-      >
-        Copy
-      </button>
-    </div>
-  `;
+    setTimeout(() => toast.parentElement && toast.remove(), 2000);
 };
 
 window.AQT.enablePanelDrag = function (panel) {
     const header = panel.querySelector("#aqt-panel-header");
-
     if (!header) return;
 
     let isDragging = false;
@@ -97,7 +32,6 @@ window.AQT.enablePanelDrag = function (panel) {
 
     header.addEventListener("mousedown", (event) => {
         isDragging = true;
-
         const rect = panel.getBoundingClientRect();
 
         offsetX = event.clientX - rect.left;
@@ -106,7 +40,6 @@ window.AQT.enablePanelDrag = function (panel) {
         panel.style.left = rect.left + "px";
         panel.style.top = rect.top + "px";
         panel.style.right = "auto";
-
         document.body.style.userSelect = "none";
     });
 
@@ -134,110 +67,136 @@ window.AQT.enablePanelDrag = function (panel) {
     });
 };
 
-window.AQT.showFloatingPanel = function (selectors) {
-    const existingPanel = document.getElementById("aqt-floating-panel");
+window.AQT.renderFrameworkOptions = function (selectedFramework) {
+    return Object.entries(window.AQT.frameworkConfig)
+        .map(([key, config]) => `<option value="${key}" ${selectedFramework === key ? "selected" : ""}>${config.title}</option>`)
+        .join("");
+};
 
-    if (existingPanel) {
-        existingPanel.remove();
-    }
+window.AQT.renderLanguageOptions = function (framework, selectedLanguage) {
+    const config = window.AQT.frameworkConfig[framework] || window.AQT.frameworkConfig.selenide;
 
+    return config.languages
+        .map((language) => `<option value="${language}" ${language === selectedLanguage ? "selected" : ""}>${language}</option>`)
+        .join("");
+};
+
+window.AQT.buildPanelContent = function (selectors, settings) {
     const escapeHtml = window.AQT.escapeHtml;
-    const orderedKeys = selectors.orderedSelectorKeys || ["css", "xpath", "selenideCss", "selenideXpath", "playwright"];
-    const recommendedKey = selectors.recommendedKey || orderedKeys[0] || "css";
+    const escapeAttribute = window.AQT.escapeAttribute;
+    const model = window.AQT.getFrameworkLocatorModel(selectors, settings);
+    const stability = window.AQT.getStabilityView(model.stability);
 
-    const recommendedSection = window.AQT.buildPanelSection(recommendedKey, selectors, true);
-    const otherSections = orderedKeys
-        .filter((key) => key !== recommendedKey)
-        .map((key) => window.AQT.buildPanelSection(key, selectors, false))
+    const altHtml = model.alternatives
+        .map((item) => `<div class="aqt-alt-item"><code>${escapeHtml(item)}</code><button class="aqt-panel-inline-copy" data-copy="${escapeAttribute(item)}">Copy</button></div>`)
         .join("");
 
-    const panel = document.createElement("div");
-    panel.id = "aqt-floating-panel";
-    panel.className = "aqt-floating-panel";
-
-    const panelTemplate = `
-    <div id="aqt-panel-header" class="aqt-panel-header">
-      <div>
-        <div class="aqt-panel-title">Automation QA Toolkit</div>
-        <div class="aqt-panel-subtitle">Selector Generator</div>
-      </div>
-
-      <button id="aqt-close-panel" class="aqt-panel-close">×</button>
+    return `
+    <div class="aqt-strategy-block">
+      <div class="aqt-block-label">Framework</div>
+      <div class="aqt-strategy-badge">${escapeHtml(model.frameworkTitle)} · ${escapeHtml(model.settings.language)}</div>
+      <div class="aqt-stability-badge aqt-stability-${escapeHtml(stability.key)}">${escapeHtml(stability.label)}</div>
     </div>
 
-    <div class="aqt-panel-body">
-      <div class="aqt-strategy-block">
-        <div class="aqt-block-label">STRATEGY</div>
-        <div class="aqt-strategy-badge">${escapeHtml(selectors.strategy)}</div>
-      </div>
+    <div class="aqt-settings-grid">
+      <label class="aqt-field">
+        <span>Framework</span>
+        <select id="aqt-framework-select">${window.AQT.renderFrameworkOptions(model.settings.framework)}</select>
+      </label>
+      <label class="aqt-field">
+        <span>Language</span>
+        <select id="aqt-language-select">${window.AQT.renderLanguageOptions(model.settings.framework, model.settings.language)}</select>
+      </label>
+    </div>
 
-      ${recommendedSection}
+    <div class="aqt-panel-section aqt-panel-section-recommended">
+      <div class="aqt-panel-section-title">Locator snippet (${escapeHtml(model.strategy)})</div>
+      <div class="aqt-panel-code">${escapeHtml(model.primary)}</div>
+      <button class="aqt-panel-inline-copy" data-copy="${escapeAttribute(model.primary)}">Copy locator</button>
+    </div>
 
-      <details class="aqt-more-selectors" open>
-        <summary>Other selectors</summary>
-        ${otherSections}
-      </details>
+    ${altHtml ? `<details class="aqt-more-selectors"><summary>Alternative snippets</summary>${altHtml}</details>` : ""}
 
-      ${selectors.xpathTextAlternative ? window.AQT.buildPanelSection("xpathTextAlternative", {
-        ...selectors,
-        xpathTextAlternative: selectors.xpathTextAlternative,
-        selectorMeta: {
-            ...selectors.selectorMeta,
-            xpathTextAlternative: { strategy: "text", stability: "medium" }
-        }
-      }, false) : ""}
-      ${selectors.selenideXpathTextAlternative ? window.AQT.buildPanelSection("selenideXpathTextAlternative", {
-        ...selectors,
-        selenideXpathTextAlternative: selectors.selenideXpathTextAlternative,
-        selectorMeta: {
-            ...selectors.selectorMeta,
-            selenideXpathTextAlternative: { strategy: "text", stability: "medium" }
-        }
-      }, false) : ""}
-      ${selectors.playwrightTextAlternative ? window.AQT.buildPanelSection("playwrightTextAlternative", {
-        ...selectors,
-        playwrightTextAlternative: selectors.playwrightTextAlternative,
-        selectorMeta: {
-            ...selectors.selectorMeta,
-            playwrightTextAlternative: { strategy: "text", stability: "medium" }
-        }
-      }, false) : ""}
-
-      <button
-        class="aqt-panel-copy"
-        data-copy="${window.AQT.escapeAttribute(selectors.allSelectorsText)}"
-      >
-        Copy All
-      </button>
+    <div class="aqt-panel-actions">
+      <button id="aqt-pick-next" class="aqt-panel-copy">Pick another element</button>
     </div>
   `;
+};
 
-    panel.innerHTML = panelTemplate;
-    document.body.appendChild(panel);
-
-    const closeButton = panel.querySelector("#aqt-close-panel");
-    if (closeButton) {
-        closeButton.addEventListener("click", () => {
-            panel.remove();
-        });
-    }
-
-    window.AQT.enablePanelDrag(panel);
-
+window.AQT.bindPanelEvents = function (panel, selectors) {
     const copyButtons = panel.querySelectorAll("[data-copy]");
+
     copyButtons.forEach((button) => {
         button.addEventListener("click", async () => {
             const textToCopy = button.getAttribute("data-copy");
             if (!textToCopy) return;
 
             await navigator.clipboard.writeText(textToCopy);
-
-            const originalText = button.textContent;
+            const old = button.textContent;
             button.textContent = "Copied!";
-
             setTimeout(() => {
-                button.textContent = originalText;
+                button.textContent = old;
             }, 1200);
         });
     });
+
+    const pickNextButton = panel.querySelector("#aqt-pick-next");
+    if (pickNextButton) {
+        pickNextButton.addEventListener("click", () => {
+            window.AQT.startPicker();
+            window.AQT.showToast("Picker mode enabled. Click any element.");
+        });
+    }
+
+    const frameworkSelect = panel.querySelector("#aqt-framework-select");
+    const languageSelect = panel.querySelector("#aqt-language-select");
+
+    if (frameworkSelect && languageSelect) {
+        frameworkSelect.addEventListener("change", async () => {
+            const framework = frameworkSelect.value;
+            const language = (window.AQT.frameworkConfig[framework] || window.AQT.frameworkConfig.selenide).languages[0];
+            await chrome.storage.local.set({ aqtSettings: { framework, language } });
+            await window.AQT.showFloatingPanel(selectors);
+        });
+
+        languageSelect.addEventListener("change", async () => {
+            const framework = frameworkSelect.value;
+            const language = languageSelect.value;
+            await chrome.storage.local.set({ aqtSettings: { framework, language } });
+            await window.AQT.showFloatingPanel(selectors);
+        });
+    }
+};
+
+window.AQT.showFloatingPanel = async function (selectors) {
+    const existingPanel = document.getElementById("aqt-floating-panel");
+    if (existingPanel) existingPanel.remove();
+
+    const stored = await chrome.storage.local.get("aqtSettings");
+    const settings = window.AQT.normalizeSettings(stored.aqtSettings);
+
+    const panel = document.createElement("div");
+    panel.id = "aqt-floating-panel";
+    panel.className = "aqt-floating-panel";
+
+    panel.innerHTML = `
+    <div id="aqt-panel-header" class="aqt-panel-header">
+      <div>
+        <div class="aqt-panel-title">Automation QA Toolkit</div>
+        <div class="aqt-panel-subtitle">Framework locator mode</div>
+      </div>
+      <button id="aqt-close-panel" class="aqt-panel-close">×</button>
+    </div>
+    <div class="aqt-panel-body">${window.AQT.buildPanelContent(selectors, settings)}</div>
+  `;
+
+    document.body.appendChild(panel);
+
+    const closeButton = panel.querySelector("#aqt-close-panel");
+    if (closeButton) {
+        closeButton.addEventListener("click", () => panel.remove());
+    }
+
+    window.AQT.enablePanelDrag(panel);
+    window.AQT.bindPanelEvents(panel, selectors);
 };
