@@ -213,20 +213,18 @@ window.AQT.getIndexedCssSelector = function (element, tag) {
 };
 
 window.AQT.getIndexedXpath = function (element, tag) {
-    if (!element || !element.parentElement) {
+    if (!element) {
         return `//${tag}`;
     }
 
-    const siblings = Array.from(element.parentElement.children)
-        .filter((sibling) => sibling.tagName.toLowerCase() === tag);
+    const allMatching = Array.from(document.querySelectorAll(tag));
+    const indexInDocument = allMatching.indexOf(element) + 1;
 
-    if (siblings.length <= 1) {
+    if (indexInDocument <= 0) {
         return `//${tag}`;
     }
 
-    const index = siblings.indexOf(element) + 1;
-
-    return `(//${tag})[${index}]`;
+    return `(//${tag})[${indexInDocument}]`;
 };
 
 window.AQT.getTextBasedSelectors = function (element, tag) {
@@ -289,6 +287,56 @@ window.AQT.getCssFallbackMeta = function (element, tag) {
 
     return {
         value: window.AQT.getIndexedCssSelector(element, tag),
+        strategy: "tag+nth",
+        stability: "weak"
+    };
+};
+
+
+window.AQT.getXpathFallbackMeta = function (element, tag) {
+    const uniqueClassSelector = window.AQT.getUniqueClassSelector(element, tag);
+
+    if (uniqueClassSelector) {
+        const classNames = uniqueClassSelector.split(".").slice(1);
+        const classPredicate = classNames
+            .map((className) => `contains(concat(" ", normalize-space(@class), " "), ${window.AQT.escapeXpathValue(` ${className} `)})`)
+            .join(" and ");
+
+        return {
+            value: `//${tag}[${classPredicate}]`,
+            strategy: "class",
+            stability: "medium"
+        };
+    }
+
+    const containsClassSelector = window.AQT.getClassContainsSelector(element, tag);
+
+    if (containsClassSelector) {
+        const match = containsClassSelector.match(/\[class\*=\'(.+)\'\]$/);
+
+        if (match && match[1]) {
+            const fragment = match[1];
+            const xpath = `//${tag}[contains(@class, ${window.AQT.escapeXpathValue(fragment)})]`;
+            const uniqueXpath = document.evaluate(
+                `count(${xpath})`,
+                document,
+                null,
+                XPathResult.NUMBER_TYPE,
+                null
+            ).numberValue === 1;
+
+            if (uniqueXpath) {
+                return {
+                    value: xpath,
+                    strategy: "class*",
+                    stability: "medium"
+                };
+            }
+        }
+    }
+
+    return {
+        value: window.AQT.getIndexedXpath(element, tag),
         strategy: "tag+nth",
         stability: "weak"
     };
@@ -389,7 +437,7 @@ window.AQT.generateSelectors = function (elementInfo, element) {
             };
         } else {
             const cssFallback = window.AQT.getCssFallbackMeta(element, tag);
-            const xpath = window.AQT.getIndexedXpath(element, tag);
+            const xpathFallback = window.AQT.getXpathFallbackMeta(element, tag);
 
             selectorMeta.css = {
                 value: cssFallback.value,
@@ -397,9 +445,9 @@ window.AQT.generateSelectors = function (elementInfo, element) {
                 stability: cssFallback.stability
             };
             selectorMeta.xpath = {
-                value: xpath,
-                strategy: "tag+nth",
-                stability: "weak"
+                value: xpathFallback.value,
+                strategy: xpathFallback.strategy,
+                stability: xpathFallback.stability
             };
             selectorMeta.selenide = {
                 value: `$("${cssFallback.value}")`,
