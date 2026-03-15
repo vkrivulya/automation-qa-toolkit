@@ -1,17 +1,58 @@
 window.AQT = window.AQT || {};
 
-window.AQT.escapeCssValue = function (value) {
+window.AQT.escapeCssString = function (value) {
     if (value == null) return "";
 
     return String(value)
         .replaceAll("\\", "\\\\")
-        .replaceAll('"', '\\"');
+        .replaceAll('"', '\\"')
+        .replaceAll("\n", "\\a ")
+        .replaceAll("\r", "\\d ");
 };
 
-window.AQT.escapeXPathValue = function (value) {
+window.AQT.escapeCssIdentifier = function (value) {
     if (value == null) return "";
 
-    return String(value).replaceAll('"', "\\\"");
+    const stringValue = String(value);
+
+    if (typeof CSS !== "undefined" && typeof CSS.escape === "function") {
+        return CSS.escape(stringValue);
+    }
+
+    return stringValue.replace(/[^a-zA-Z0-9_-]/g, "\\$&");
+};
+
+window.AQT.toXPathLiteral = function (value) {
+    if (value == null) return '""';
+
+    const stringValue = String(value);
+
+    if (!stringValue.includes('"')) {
+        return `"${stringValue}"`;
+    }
+
+    if (!stringValue.includes("'")) {
+        return `'${stringValue}'`;
+    }
+
+    const parts = stringValue.split('"');
+    const xpathParts = [];
+
+    parts.forEach((part, index) => {
+        if (part) {
+            xpathParts.push(`"${part}"`);
+        }
+
+        if (index < parts.length - 1) {
+            xpathParts.push("'\"'");
+        }
+    });
+
+    if (xpathParts.length === 0) {
+        return '""';
+    }
+
+    return `concat(${xpathParts.join(", ")})`;
 };
 
 window.AQT.escapeJsSingleQuoteValue = function (value) {
@@ -19,20 +60,26 @@ window.AQT.escapeJsSingleQuoteValue = function (value) {
 
     return String(value)
         .replaceAll("\\", "\\\\")
-        .replaceAll("'", "\\'");
+        .replaceAll("'", "\\'")
+        .replaceAll("\n", "\\n")
+        .replaceAll("\r", "\\r");
+};
+
+window.AQT.getFirstClassToken = function (className) {
+    if (!className) return "";
+
+    return String(className)
+        .trim()
+        .split(/\s+/)
+        .find(Boolean) || "";
 };
 
 window.AQT.toClassSelector = function (className) {
-    if (!className) return "";
-
-    const firstClass = String(className)
-        .trim()
-        .split(/\s+/)
-        .find(Boolean);
+    const firstClass = window.AQT.getFirstClassToken(className);
 
     if (!firstClass) return "";
 
-    return `.${window.AQT.escapeCssValue(firstClass)}`;
+    return `.${window.AQT.escapeCssIdentifier(firstClass)}`;
 };
 
 window.AQT.getBestTarget = function (element) {
@@ -77,77 +124,11 @@ window.AQT.buildElementInfo = function (element) {
     };
 };
 
-window.AQT.generateSelectors = function (elementInfo) {
-    let css = "";
-    let xpath = "";
-    let selenide = "";
-    let playwright = "";
-    let strategy = "";
+window.AQT.buildSelectorsResult = function (strategy, css, xpath) {
+    const jsCss = window.AQT.escapeJsSingleQuoteValue(css);
 
-    const tag = elementInfo.tag ? elementInfo.tag.toLowerCase() : "*";
-    const cssDataE2e = window.AQT.escapeCssValue(elementInfo.dataE2e);
-    const cssDataTestId = window.AQT.escapeCssValue(elementInfo.dataTestId);
-    const cssDataTest = window.AQT.escapeCssValue(elementInfo.dataTest);
-    const cssId = window.AQT.escapeCssValue(elementInfo.id);
-    const cssName = window.AQT.escapeCssValue(elementInfo.name);
-
-    const xpathDataE2e = window.AQT.escapeXPathValue(elementInfo.dataE2e);
-    const xpathDataTestId = window.AQT.escapeXPathValue(elementInfo.dataTestId);
-    const xpathDataTest = window.AQT.escapeXPathValue(elementInfo.dataTest);
-    const xpathId = window.AQT.escapeXPathValue(elementInfo.id);
-    const xpathName = window.AQT.escapeXPathValue(elementInfo.name);
-
-    const jsDataE2e = window.AQT.escapeJsSingleQuoteValue(elementInfo.dataE2e);
-    const jsDataTestId = window.AQT.escapeJsSingleQuoteValue(elementInfo.dataTestId);
-    const jsDataTest = window.AQT.escapeJsSingleQuoteValue(elementInfo.dataTest);
-    const jsId = window.AQT.escapeJsSingleQuoteValue(elementInfo.id);
-    const jsName = window.AQT.escapeJsSingleQuoteValue(elementInfo.name);
-
-    if (elementInfo.dataE2e) {
-        css = `[data-e2e="${cssDataE2e}"]`;
-        xpath = `//${tag}[@data-e2e="${xpathDataE2e}"]`;
-        selenide = `$("[data-e2e='${jsDataE2e}']")`;
-        playwright = `page.locator('[data-e2e="${cssDataE2e}"]')`;
-        strategy = "data-e2e";
-    } else if (elementInfo.dataTestId) {
-        css = `[data-testid="${cssDataTestId}"]`;
-        xpath = `//${tag}[@data-testid="${xpathDataTestId}"]`;
-        selenide = `$("[data-testid='${jsDataTestId}']")`;
-        playwright = `page.locator('[data-testid="${cssDataTestId}"]')`;
-        strategy = "data-testid";
-    } else if (elementInfo.dataTest) {
-        css = `[data-test="${cssDataTest}"]`;
-        xpath = `//${tag}[@data-test="${xpathDataTest}"]`;
-        selenide = `$("[data-test='${jsDataTest}']")`;
-        playwright = `page.locator('[data-test="${cssDataTest}"]')`;
-        strategy = "data-test";
-    } else if (elementInfo.id) {
-        css = `#${cssId}`;
-        xpath = `//${tag}[@id="${xpathId}"]`;
-        selenide = `$("#${jsId}")`;
-        playwright = `page.locator('#${jsId}')`;
-        strategy = "id";
-    } else if (elementInfo.name) {
-        css = `[name="${cssName}"]`;
-        xpath = `//${tag}[@name="${xpathName}"]`;
-        selenide = `$("[name='${jsName}']")`;
-        playwright = `page.locator('[name="${cssName}"]')`;
-        strategy = "name";
-    } else if (elementInfo.classes) {
-        const classSelector = window.AQT.toClassSelector(elementInfo.classes);
-
-        css = classSelector || tag;
-        xpath = `//${tag}`;
-        selenide = `$("${window.AQT.escapeJsSingleQuoteValue(css)}")`;
-        playwright = `page.locator('${window.AQT.escapeJsSingleQuoteValue(css)}')`;
-        strategy = classSelector ? "class" : "tag";
-    } else {
-        css = tag;
-        xpath = `//${tag}`;
-        selenide = `$("${tag}")`;
-        playwright = `page.locator('${tag}')`;
-        strategy = "tag";
-    }
+    const selenide = `$('${jsCss}')`;
+    const playwright = `page.locator('${jsCss}')`;
 
     const allSelectorsText =
         `Strategy: ${strategy}
@@ -164,4 +145,57 @@ Playwright: ${playwright}`;
         playwright,
         allSelectorsText
     };
+};
+
+window.AQT.generateSelectors = function (elementInfo) {
+    const tag = elementInfo.tag ? elementInfo.tag.toLowerCase() : "*";
+
+    if (elementInfo.dataE2e) {
+        const css = `[data-e2e="${window.AQT.escapeCssString(elementInfo.dataE2e)}"]`;
+        const xpath = `//${tag}[@data-e2e=${window.AQT.toXPathLiteral(elementInfo.dataE2e)}]`;
+
+        return window.AQT.buildSelectorsResult("data-e2e", css, xpath);
+    }
+
+    if (elementInfo.dataTestId) {
+        const css = `[data-testid="${window.AQT.escapeCssString(elementInfo.dataTestId)}"]`;
+        const xpath = `//${tag}[@data-testid=${window.AQT.toXPathLiteral(elementInfo.dataTestId)}]`;
+
+        return window.AQT.buildSelectorsResult("data-testid", css, xpath);
+    }
+
+    if (elementInfo.dataTest) {
+        const css = `[data-test="${window.AQT.escapeCssString(elementInfo.dataTest)}"]`;
+        const xpath = `//${tag}[@data-test=${window.AQT.toXPathLiteral(elementInfo.dataTest)}]`;
+
+        return window.AQT.buildSelectorsResult("data-test", css, xpath);
+    }
+
+    if (elementInfo.id) {
+        const css = `#${window.AQT.escapeCssIdentifier(elementInfo.id)}`;
+        const xpath = `//${tag}[@id=${window.AQT.toXPathLiteral(elementInfo.id)}]`;
+
+        return window.AQT.buildSelectorsResult("id", css, xpath);
+    }
+
+    if (elementInfo.name) {
+        const css = `[name="${window.AQT.escapeCssString(elementInfo.name)}"]`;
+        const xpath = `//${tag}[@name=${window.AQT.toXPathLiteral(elementInfo.name)}]`;
+
+        return window.AQT.buildSelectorsResult("name", css, xpath);
+    }
+
+    const firstClass = window.AQT.getFirstClassToken(elementInfo.classes);
+    const classSelector = window.AQT.toClassSelector(elementInfo.classes);
+
+    if (classSelector && firstClass) {
+        const xpath = `//${tag}[contains(concat(' ', normalize-space(@class), ' '), ${window.AQT.toXPathLiteral(` ${firstClass} `)})]`;
+
+        return window.AQT.buildSelectorsResult("class", classSelector, xpath);
+    }
+
+    const css = tag;
+    const xpath = `//${tag}`;
+
+    return window.AQT.buildSelectorsResult("tag", css, xpath);
 };
