@@ -106,6 +106,18 @@ window.AQT.isLikelyGeneratedClass = function (className) {
     );
 };
 
+window.AQT.selectorPriorityRank = function (key) {
+    const ranks = {
+        css: 5,
+        xpath: 4,
+        playwright: 3,
+        selenideXpath: 2,
+        selenideCss: 1
+    };
+
+    return ranks[key] || 0;
+};
+
 window.AQT.stabilityRank = function (stability) {
     const ranks = {
         stable: 3,
@@ -480,9 +492,18 @@ window.AQT.generateSelectors = function (elementInfo, element) {
         }
     }
 
-    const bestKey = Object.keys(selectorMeta)
-        .sort((a, b) => window.AQT.stabilityRank(selectorMeta[b].stability) - window.AQT.stabilityRank(selectorMeta[a].stability))[0];
+    const orderedSelectorKeys = Object.keys(selectorMeta)
+        .sort((a, b) => {
+            const stabilityDiff = window.AQT.stabilityRank(selectorMeta[b].stability) - window.AQT.stabilityRank(selectorMeta[a].stability);
 
+            if (stabilityDiff !== 0) {
+                return stabilityDiff;
+            }
+
+            return window.AQT.selectorPriorityRank(b) - window.AQT.selectorPriorityRank(a);
+        });
+
+    const bestKey = orderedSelectorKeys[0];
     const strategy = selectorMeta[bestKey].strategy;
     const stability = selectorMeta[bestKey].stability;
 
@@ -490,6 +511,8 @@ window.AQT.generateSelectors = function (elementInfo, element) {
         `Best strategy: ${strategy}
 ` +
         `Overall stability: ${stability}
+` +
+        `Recommended (${bestKey}): ${selectorMeta[bestKey].value}
 ` +
         `CSS [${selectorMeta.css.stability}]: ${selectorMeta.css.value}
 ` +
@@ -504,6 +527,9 @@ window.AQT.generateSelectors = function (elementInfo, element) {
     return {
         strategy,
         stability,
+        recommendedKey: bestKey,
+        recommendedSelector: selectorMeta[bestKey].value,
+        orderedSelectorKeys,
         css: selectorMeta.css.value,
         xpath: selectorMeta.xpath.value,
         selenideCss: selectorMeta.selenideCss.value,
@@ -512,5 +538,6 @@ window.AQT.generateSelectors = function (elementInfo, element) {
         playwright: selectorMeta.playwright.value,
         selectorMeta,
         allSelectorsText
+    
     };
 };
