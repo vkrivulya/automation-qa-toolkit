@@ -996,7 +996,7 @@ window.AQT.formatFrameworkLocator = function (framework, language, candidate) {
 
     if (framework === "webdriverio") {
         return candidate.type === "xpath"
-            ? `const element = await $('${xpathSingleQuoted}');`
+            ? `const element = await $("${xpathDoubleQuoted}");`
             : `const element = await $('${cssSingleQuoted}');`;
     }
 
