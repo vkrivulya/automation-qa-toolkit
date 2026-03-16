@@ -1022,7 +1022,7 @@ window.AQT.formatFrameworkLocator = function (framework, language, candidate) {
 
     if (framework === "cypress") {
         return candidate.type === "xpath"
-            ? `cy.xpath("${xpathDoubleQuoted}")`
+            ? `cy.xpath('${xpathPlaywrightSingleQuoted}')`
             : `cy.get('${cssSingleQuoted}')`;
     }
 
