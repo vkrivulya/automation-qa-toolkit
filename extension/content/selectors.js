@@ -1022,7 +1022,7 @@ window.AQT.formatFrameworkLocator = function (framework, language, candidate) {
 
     if (framework === "cypress") {
         return candidate.type === "xpath"
-            ? `cy.xpath('${xpathSingleQuoted}') // requires @cypress/xpath`
+            ? `cy.xpath("${xpathDoubleQuoted}")`
             : `cy.get('${cssSingleQuoted}')`;
     }
 
@@ -1114,7 +1114,13 @@ window.AQT.getAlternativeCandidates = function (settings, selectors, orderedCand
     return orderedCandidates
         .filter((candidate) => candidate.value !== primaryCandidate.value)
         .slice(0, 2)
-        .map((candidate) => ({ ...candidate, label: candidate.type === "xpath" ? "XPath" : "Alternative" }));
+        .map((candidate) => ({
+            ...candidate,
+            label: candidate.type === "xpath" ? "XPath" : "Alternative",
+            hint: settings.framework === "cypress" && candidate.type === "xpath"
+                ? "Requires cypress-xpath plugin"
+                : candidate.hint
+        }));
 };
 
 window.AQT.getFrameworkLocatorModel = function (selectors, rawSettings) {
@@ -1143,6 +1149,9 @@ window.AQT.getFrameworkLocatorModel = function (selectors, rawSettings) {
         settings,
         frameworkTitle: window.AQT.frameworkConfig[settings.framework].title,
         primary,
+        primaryHint: settings.framework === "cypress" && primaryCandidate.type === "xpath"
+            ? "Requires cypress-xpath plugin"
+            : "",
         alternatives,
         strategy: primaryCandidate.meta?.strategy || selectors.strategy,
         stability: primaryCandidate.meta?.stability || selectors.stability
