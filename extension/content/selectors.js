@@ -996,8 +996,8 @@ window.AQT.formatFrameworkLocator = function (framework, language, candidate) {
 
     if (framework === "webdriverio") {
         return candidate.type === "xpath"
-            ? `const element = await $("${xpathDoubleQuoted}");`
-            : `const element = await $('${cssSingleQuoted}');`;
+            ? `$("${xpathDoubleQuoted}")`
+            : `$('${cssSingleQuoted}')`;
     }
 
     if (framework === "playwright") {
@@ -1024,8 +1024,8 @@ window.AQT.formatFrameworkLocator = function (framework, language, candidate) {
 
     if (framework === "robot") {
         return candidate.type === "xpath"
-            ? `Click Element    xpath:${xpathCanonical}`
-            : `Click Element    css:${cssJvmStyle}`;
+            ? `xpath:${xpathCanonical}`
+            : `css:${cssJvmStyle}`;
     }
 
 
