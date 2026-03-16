@@ -37,8 +37,8 @@ const FRAMEWORKS = [
     {
         id: "robot",
         title: "Robot Framework",
-        languages: ["Robot Framework"],
-        description: "Keywords for BrowserLibrary / SeleniumLibrary."
+        languages: ["SeleniumLibrary", "Browser Library"],
+        description: "Robot Framework libraries with different locator syntax."
     }
 ];
 

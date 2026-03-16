@@ -869,7 +869,7 @@ window.AQT.frameworkConfig = {
     },
     robot: {
         title: "Robot Framework",
-        languages: ["Robot Framework"]
+        languages: ["SeleniumLibrary", "Browser Library"]
     }
 };
 
@@ -1027,6 +1027,12 @@ window.AQT.formatFrameworkLocator = function (framework, language, candidate) {
     }
 
     if (framework === "robot") {
+        if (language === "Browser Library") {
+            return candidate.type === "xpath"
+                ? `xpath=${xpathCanonical}`
+                : `css=${cssJsStyle}`;
+        }
+
         return candidate.type === "xpath"
             ? `xpath:${xpathCanonical}`
             : `css:${cssJvmStyle}`;
