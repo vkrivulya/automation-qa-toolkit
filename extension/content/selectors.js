@@ -1036,6 +1036,36 @@ window.AQT.formatFrameworkLocator = function (framework, language, candidate) {
     return candidate.value;
 };
 
+window.AQT.extractAttributeValue = function (selector, attributeName) {
+    if (!selector || !attributeName) return "";
+
+    const value = String(selector);
+    const cssDoubleStart = `[${attributeName}="`;
+    const cssSingleStart = `[${attributeName}='`;
+    const xpathDoubleStart = `@${attributeName}="`;
+    const xpathSingleStart = `@${attributeName}='`;
+
+    const extractByStart = (startToken, endToken) => {
+        const startIndex = value.indexOf(startToken);
+
+        if (startIndex < 0) return "";
+
+        const contentStart = startIndex + startToken.length;
+        const endIndex = value.indexOf(endToken, contentStart);
+
+        if (endIndex < 0) return "";
+
+        return value.slice(contentStart, endIndex);
+    };
+
+    return (
+        extractByStart(cssDoubleStart, '"]')
+        || extractByStart(cssSingleStart, "']")
+        || extractByStart(xpathDoubleStart, '"')
+        || extractByStart(xpathSingleStart, "'")
+    );
+};
+
 window.AQT.getAlternativeCandidates = function (settings, selectors, orderedCandidates, primaryCandidate) {
     if (settings.framework === "playwright") {
         const alternatives = [];
@@ -1047,6 +1077,22 @@ window.AQT.getAlternativeCandidates = function (settings, selectors, orderedCand
                 value: selectors.xpath,
                 meta: selectors.selectorMeta?.xpath || { strategy: "xpath", stability: "medium" },
                 label: "XPath"
+            });
+        }
+
+        const testIdValue = window.AQT.extractAttributeValue(selectors.css, "data-testid")
+            || window.AQT.extractAttributeValue(selectors.xpath, "data-testid");
+
+        if (testIdValue) {
+            const escapedTestId = window.AQT.escapeJsSingleQuotedString(testIdValue);
+
+            alternatives.push({
+                type: "playwright",
+                raw: `page.getByTestId('${escapedTestId}')`,
+                value: `page.getByTestId('${escapedTestId}')`,
+                meta: { strategy: "data-testid", stability: "stable" },
+                label: "getByTestId",
+                hint: "Requires Playwright config"
             });
         }
 
@@ -1088,6 +1134,7 @@ window.AQT.getFrameworkLocatorModel = function (selectors, rawSettings) {
     const alternatives = alternativeCandidates
         .map((candidate) => ({
             label: candidate.label,
+            hint: candidate.hint,
             snippet: window.AQT.formatFrameworkLocator(settings.framework, settings.language, candidate)
         }))
         .filter((item) => item.snippet);

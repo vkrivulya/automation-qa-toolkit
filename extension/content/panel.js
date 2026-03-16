@@ -91,6 +91,7 @@ window.AQT.buildPanelContent = function (selectors, settings) {
         .map((item) => `
         <div class="aqt-alt-item">
           <div class="aqt-alt-label">${escapeHtml(item.label || "Alternative")}</div>
+          ${item.hint ? `<div class="aqt-alt-hint">${escapeHtml(item.hint)}</div>` : ""}
           <code>${escapeHtml(item.snippet)}</code>
           <button class="aqt-panel-inline-copy" data-copy="${escapeAttribute(item.snippet)}">Copy</button>
         </div>`)
