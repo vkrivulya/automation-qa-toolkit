@@ -993,13 +993,13 @@ window.AQT.formatFrameworkLocator = function (framework, language, candidate) {
     if (framework === "selenium") {
         if (language === "Python") {
             return candidate.type === "xpath"
-                ? `driver.find_element(By.XPATH, '${xpathSingleQuoted}')`
-                : `driver.find_element(By.CSS_SELECTOR, '${cssSingleQuoted}')`;
+                ? `driver.find_element(By.XPATH, "${xpathDoubleQuoted}")`
+                : `driver.find_element(By.CSS_SELECTOR, "${cssDoubleQuoted}")`;
         }
 
         if (language === "JavaScript") {
             return candidate.type === "xpath"
-                ? `await driver.findElement(By.xpath('${xpathSingleQuoted}'));`
+                ? `await driver.findElement(By.xpath("${xpathDoubleQuoted}"));`
                 : `await driver.findElement(By.css('${cssSingleQuoted}'));`;
         }
 
