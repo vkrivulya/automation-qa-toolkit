@@ -849,31 +849,27 @@ Playwright (text alt) [medium]: ${playwrightTextAlternative}` : "");
 window.AQT.frameworkConfig = {
     selenide: {
         title: "Selenide",
-        languages: ["Java", "Kotlin"]
+        languages: ["Java"]
     },
     selenium: {
         title: "Selenium",
-        languages: ["Java", "Python", "JavaScript", "C#"]
+        languages: ["Java", "Python"]
     },
     webdriverio: {
         title: "WebdriverIO",
-        languages: ["JavaScript", "TypeScript"]
+        languages: ["TypeScript"]
     },
     playwright: {
         title: "Playwright",
-        languages: ["TypeScript", "JavaScript", "Python", "Java", "C#"]
+        languages: ["TypeScript", "Python"]
     },
     cypress: {
         title: "CypressJS",
-        languages: ["JavaScript", "TypeScript"]
+        languages: ["TypeScript"]
     },
     robot: {
         title: "Robot Framework",
         languages: ["Robot Framework"]
-    },
-    appium: {
-        title: "Appium",
-        languages: ["Java", "Python", "JavaScript"]
     }
 };
 
@@ -923,10 +919,6 @@ window.AQT.getFrameworkCandidates = function (selectors, framework) {
             selectors.xpathTextAlternative ? { value: selectors.xpathTextAlternative, raw: selectors.xpathTextAlternative, type: "xpath", meta: { stability: "medium", strategy: "text" } } : null
         ],
         robot: [
-            { value: selectors.css, raw: selectors.css, type: "css", meta: meta.css },
-            { value: selectors.xpath, raw: selectors.xpath, type: "xpath", meta: meta.xpath }
-        ],
-        appium: [
             { value: selectors.css, raw: selectors.css, type: "css", meta: meta.css },
             { value: selectors.xpath, raw: selectors.xpath, type: "xpath", meta: meta.xpath }
         ]
@@ -997,18 +989,6 @@ window.AQT.formatFrameworkLocator = function (framework, language, candidate) {
                 : `driver.find_element(By.CSS_SELECTOR, "${cssDoubleQuoted}")`;
         }
 
-        if (language === "JavaScript") {
-            return candidate.type === "xpath"
-                ? `await driver.findElement(By.xpath("${xpathDoubleQuoted}"));`
-                : `await driver.findElement(By.css('${cssSingleQuoted}'));`;
-        }
-
-        if (language === "C#") {
-            return candidate.type === "xpath"
-                ? `driver.FindElement(By.XPath("${xpathDoubleQuoted}"));`
-                : `driver.FindElement(By.CssSelector("${cssDoubleQuoted}"));`;
-        }
-
         return candidate.type === "xpath"
             ? `driver.findElement(By.xpath("${xpathDoubleQuoted}"));`
             : `driver.findElement(By.cssSelector("${cssDoubleQuoted}"));`;
@@ -1022,15 +1002,6 @@ window.AQT.formatFrameworkLocator = function (framework, language, candidate) {
 
     if (framework === "playwright") {
         if (candidate.type === "playwright") {
-            if (language === "C#") {
-                const locatorCall = candidate.value
-                    .replace(/^page\.locator\("(.+)"\)$/i, (_match, selector) => `page.Locator("${window.AQT.escapeDoubleQuotedSnippet(selector)}")`)
-                    .replace(/^page\.locator\('(.+)'\)$/i, (_match, selector) => `page.Locator("${window.AQT.escapeDoubleQuotedSnippet(selector)}")`)
-                    .replace(/^page\.locator\(/i, "page.Locator(");
-
-                return locatorCall;
-            }
-
             return candidate.value;
         }
 
@@ -1038,12 +1009,6 @@ window.AQT.formatFrameworkLocator = function (framework, language, candidate) {
             return candidate.type === "xpath"
                 ? `page.locator('xpath=${xpathSingleQuoted}')`
                 : `page.locator('${cssSingleQuoted}')`;
-        }
-
-        if (language === "C#") {
-            return candidate.type === "xpath"
-                ? `page.Locator("xpath=${xpathDoubleQuoted}")`
-                : `page.Locator("${cssDoubleQuoted}")`;
         }
 
         return candidate.type === "xpath"
@@ -1063,23 +1028,6 @@ window.AQT.formatFrameworkLocator = function (framework, language, candidate) {
             : `Click Element    css:${cssJvmStyle}`;
     }
 
-    if (framework === "appium") {
-        if (language === "Python") {
-            return candidate.type === "xpath"
-                ? `driver.find_element(AppiumBy.XPATH, '${xpathSingleQuoted}')`
-                : `driver.find_element(AppiumBy.CSS_SELECTOR, '${cssSingleQuoted}')`;
-        }
-
-        if (language === "JavaScript") {
-            return candidate.type === "xpath"
-                ? `const element = await driver.$('${xpathSingleQuoted}');`
-                : `const element = await driver.$('${cssSingleQuoted}');`;
-        }
-
-        return candidate.type === "xpath"
-            ? `driver.findElement(AppiumBy.xpath("${xpathDoubleQuoted}"));`
-            : `driver.findElement(AppiumBy.cssSelector("${cssDoubleQuoted}"));`;
-    }
 
     return candidate.value;
 };

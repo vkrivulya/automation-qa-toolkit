@@ -7,31 +7,31 @@ const FRAMEWORKS = [
     {
         id: "selenide",
         title: "Selenide",
-        languages: ["Java", "Kotlin"],
+        languages: ["Java"],
         description: "Fluent selectors for Selenide tests."
     },
     {
         id: "selenium",
         title: "Selenium",
-        languages: ["Java", "Python", "JavaScript", "C#"],
+        languages: ["Java", "Python"],
         description: "Classic WebDriver format for Selenium projects."
     },
     {
         id: "webdriverio",
         title: "WebdriverIO",
-        languages: ["JavaScript", "TypeScript"],
+        languages: ["TypeScript"],
         description: "WDIO element access for JS/TS stacks."
     },
     {
         id: "playwright",
         title: "Playwright",
-        languages: ["TypeScript", "JavaScript", "Python", "Java", "C#"],
+        languages: ["TypeScript", "Python"],
         description: "Playwright-native locator snippets."
     },
     {
         id: "cypress",
         title: "CypressJS",
-        languages: ["JavaScript", "TypeScript"],
+        languages: ["TypeScript"],
         description: "Cypress-ready locators for fast e2e tests."
     },
     {
@@ -39,12 +39,6 @@ const FRAMEWORKS = [
         title: "Robot Framework",
         languages: ["Robot Framework"],
         description: "Keywords for BrowserLibrary / SeleniumLibrary."
-    },
-    {
-        id: "appium",
-        title: "Appium",
-        languages: ["Java", "Python", "JavaScript"],
-        description: "Mobile-oriented WebDriver locator style."
     }
 ];
 
