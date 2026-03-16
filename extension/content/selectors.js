@@ -935,31 +935,66 @@ window.AQT.getFrameworkCandidates = function (selectors, framework) {
     return (candidates[framework] || []).filter(Boolean);
 };
 
+window.AQT.normalizeCssAttributeQuotes = function (selector, quoteChar) {
+    if (!selector) return "";
+
+    const safeQuote = quoteChar === "'" ? "'" : '"';
+
+    return String(selector).replace(/\[([^=\]]+)=["']([^"'\]]*)["']\]/g, (_match, attr, value) => {
+        const normalizedValue = String(value)
+            .replace(/\\/g, "\\\\")
+            .replace(new RegExp(safeQuote, "g"), `\\${safeQuote}`);
+
+        return `[${attr}=${safeQuote}${normalizedValue}${safeQuote}]`;
+    });
+};
+
+window.AQT.normalizeXpathAttributeQuotes = function (xpath) {
+    if (!xpath) return "";
+
+    return String(xpath).replace(/@([a-zA-Z0-9:_-]+)=["']([^"']*)["']/g, (_match, attr, value) => {
+        const normalizedValue = String(value)
+            .replace(/\\/g, "\\\\")
+            .replace(/'/g, "\\'");
+
+        return `@${attr}='${normalizedValue}'`;
+    });
+};
+
+window.AQT.escapeDoubleQuotedSnippet = function (value) {
+    if (value == null) return "";
+
+    return String(value)
+        .replace(/\\/g, "\\\\")
+        .replace(/"/g, '\\"');
+};
+
 window.AQT.formatFrameworkLocator = function (framework, language, candidate) {
     if (!candidate || !candidate.value) return "";
 
-    const css = candidate.raw || candidate.value;
-    const xpath = candidate.raw || candidate.value;
-    const cssSingleQuoted = window.AQT.escapeJsSingleQuotedString(css);
-    const xpathSingleQuoted = window.AQT.escapeJsSingleQuotedString(xpath);
-    const cssDoubleQuoted = String(css).replace(/"/g, '\\"');
-    const xpathDoubleQuoted = String(xpath).replace(/"/g, '\\"');
+    const cssRaw = candidate.raw || candidate.value;
+    const xpathRaw = candidate.raw || candidate.value;
+
+    const cssJsStyle = window.AQT.normalizeCssAttributeQuotes(cssRaw, '"');
+    const cssJvmStyle = window.AQT.normalizeCssAttributeQuotes(cssRaw, "'");
+    const xpathCanonical = window.AQT.normalizeXpathAttributeQuotes(xpathRaw);
+
+    const cssSingleQuoted = window.AQT.escapeJsSingleQuotedString(cssJsStyle);
+    const xpathSingleQuoted = window.AQT.escapeJsSingleQuotedString(xpathCanonical);
+    const cssDoubleQuoted = window.AQT.escapeDoubleQuotedSnippet(cssJvmStyle);
+    const xpathDoubleQuoted = window.AQT.escapeDoubleQuotedSnippet(xpathCanonical);
 
     if (framework === "selenide") {
-        const cssSelectorForSelenide = css
-            .replace(/"/g, "'")
-            .replace(/\\/g, "\\\\");
-
         return candidate.type === "xpath"
             ? `$x("${xpathDoubleQuoted}")`
-            : `$("${cssSelectorForSelenide}")`;
+            : `$("${cssDoubleQuoted}")`;
     }
 
     if (framework === "selenium") {
         if (language === "Python") {
             return candidate.type === "xpath"
-                ? `driver.find_element(By.XPATH, "${xpath.replace(/"/g, '\\"')}")`
-                : `driver.find_element(By.CSS_SELECTOR, "${css.replace(/"/g, '\\"')}")`;
+                ? `driver.find_element(By.XPATH, '${xpathSingleQuoted}')`
+                : `driver.find_element(By.CSS_SELECTOR, '${cssSingleQuoted}')`;
         }
 
         if (language === "JavaScript") {
@@ -970,31 +1005,45 @@ window.AQT.formatFrameworkLocator = function (framework, language, candidate) {
 
         if (language === "C#") {
             return candidate.type === "xpath"
-                ? `driver.FindElement(By.XPath("${xpath.replace(/"/g, '\\"')}"));`
-                : `driver.FindElement(By.CssSelector("${css.replace(/"/g, '\\"')}"));`;
+                ? `driver.FindElement(By.XPath("${xpathDoubleQuoted}"));`
+                : `driver.FindElement(By.CssSelector("${cssDoubleQuoted}"));`;
         }
 
         return candidate.type === "xpath"
-            ? `driver.findElement(By.xpath("${xpath.replace(/"/g, '\\"')}"));`
-            : `driver.findElement(By.cssSelector("${css.replace(/"/g, '\\"')}"));`;
+            ? `driver.findElement(By.xpath("${xpathDoubleQuoted}"));`
+            : `driver.findElement(By.cssSelector("${cssDoubleQuoted}"));`;
     }
 
     if (framework === "webdriverio") {
         return candidate.type === "xpath"
-            ? `const element = await $("${xpath.replace(/"/g, '\\"')}");`
-            : `const element = await $("${css.replace(/"/g, '\\"')}");`;
+            ? `const element = await $('${xpathSingleQuoted}');`
+            : `const element = await $('${cssSingleQuoted}');`;
     }
 
     if (framework === "playwright") {
         if (candidate.type === "playwright") {
-            if (language === "Python") return candidate.value.replace(/^page\./, "page.");
+            if (language === "C#") {
+                const locatorCall = candidate.value
+                    .replace(/^page\.locator\("(.+)"\)$/i, (_match, selector) => `page.Locator("${window.AQT.escapeDoubleQuotedSnippet(selector)}")`)
+                    .replace(/^page\.locator\('(.+)'\)$/i, (_match, selector) => `page.Locator("${window.AQT.escapeDoubleQuotedSnippet(selector)}")`)
+                    .replace(/^page\.locator\(/i, "page.Locator(");
+
+                return locatorCall;
+            }
+
             return candidate.value;
         }
 
         if (language === "Python") {
             return candidate.type === "xpath"
-                ? `page.locator("xpath=${xpath.replace(/"/g, '\\"')}")`
-                : `page.locator("${css.replace(/"/g, '\\"')}")`;
+                ? `page.locator('xpath=${xpathSingleQuoted}')`
+                : `page.locator('${cssSingleQuoted}')`;
+        }
+
+        if (language === "C#") {
+            return candidate.type === "xpath"
+                ? `page.Locator("xpath=${xpathDoubleQuoted}")`
+                : `page.Locator("${cssDoubleQuoted}")`;
         }
 
         return candidate.type === "xpath"
@@ -1004,32 +1053,32 @@ window.AQT.formatFrameworkLocator = function (framework, language, candidate) {
 
     if (framework === "cypress") {
         return candidate.type === "xpath"
-            ? `cy.xpath("${xpath.replace(/"/g, '\\"')}")`
-            : `cy.get("${css.replace(/"/g, '\\"')}")`;
+            ? `cy.xpath('${xpathSingleQuoted}') // requires @cypress/xpath`
+            : `cy.get('${cssSingleQuoted}')`;
     }
 
     if (framework === "robot") {
         return candidate.type === "xpath"
-            ? `Click Element    xpath:${xpath}`
-            : `Click Element    css:${css}`;
+            ? `Click Element    xpath:${xpathCanonical}`
+            : `Click Element    css:${cssJvmStyle}`;
     }
 
     if (framework === "appium") {
         if (language === "Python") {
             return candidate.type === "xpath"
-                ? `driver.find_element(AppiumBy.XPATH, "${xpath.replace(/"/g, '\\"')}")`
-                : `driver.find_element(AppiumBy.CSS_SELECTOR, "${css.replace(/"/g, '\\"')}")`;
+                ? `driver.find_element(AppiumBy.XPATH, '${xpathSingleQuoted}')`
+                : `driver.find_element(AppiumBy.CSS_SELECTOR, '${cssSingleQuoted}')`;
         }
 
         if (language === "JavaScript") {
             return candidate.type === "xpath"
-                ? `const element = await driver.$("${xpath.replace(/"/g, '\\"')}");`
-                : `const element = await driver.$("${css.replace(/"/g, '\\"')}");`;
+                ? `const element = await driver.$('${xpathSingleQuoted}');`
+                : `const element = await driver.$('${cssSingleQuoted}');`;
         }
 
         return candidate.type === "xpath"
-            ? `driver.findElement(AppiumBy.xpath("${xpath.replace(/"/g, '\\"')}"));`
-            : `driver.findElement(AppiumBy.cssSelector("${css.replace(/"/g, '\\"')}"));`;
+            ? `driver.findElement(AppiumBy.xpath("${xpathDoubleQuoted}"));`
+            : `driver.findElement(AppiumBy.cssSelector("${cssDoubleQuoted}"));`;
     }
 
     return candidate.value;
