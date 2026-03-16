@@ -1092,7 +1092,7 @@ window.AQT.getAlternativeCandidates = function (settings, selectors, orderedCand
                 value: `page.getByTestId('${escapedTestId}')`,
                 meta: { strategy: "data-testid", stability: "stable" },
                 label: "getByTestId",
-                hint: "Requires Playwright config"
+                hint: "Playwright best practice"
             });
         }
 
