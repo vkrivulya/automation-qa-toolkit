@@ -116,7 +116,7 @@ window.AQT.buildPanelContent = function (selectors, settings) {
     </div>
 
     <div class="aqt-panel-section aqt-panel-section-recommended">
-      <div class="aqt-panel-section-title">Locator snippet (${escapeHtml(model.strategy)})</div>
+      <div class="aqt-panel-section-title">Recommended locator (${escapeHtml(model.strategy)})</div>
       ${model.primaryHint ? `<div class="aqt-alt-hint">${escapeHtml(model.primaryHint)}</div>` : ""}
       <div class="aqt-panel-code">${escapeHtml(model.primary)}</div>
       <button class="aqt-panel-inline-copy" data-copy="${escapeAttribute(model.primary)}">Copy locator</button>

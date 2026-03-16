@@ -963,6 +963,12 @@ window.AQT.escapeDoubleQuotedSnippet = function (value) {
         .replace(/"/g, '\\"');
 };
 
+window.AQT.generalizeXpathTag = function (xpath) {
+    if (!xpath) return "";
+
+    return String(xpath).replace(/^\/\/[a-zA-Z][a-zA-Z0-9_-]*/u, "//*");
+};
+
 window.AQT.formatFrameworkLocator = function (framework, language, candidate) {
     if (!candidate || !candidate.value) return "";
 
@@ -973,12 +979,14 @@ window.AQT.formatFrameworkLocator = function (framework, language, candidate) {
     const cssJvmStyle = window.AQT.normalizeCssAttributeQuotes(cssRaw, "'");
     const xpathCanonical = window.AQT.normalizeXpathAttributeQuotes(xpathRaw, "'");
     const xpathPlaywright = window.AQT.normalizeXpathAttributeQuotes(xpathRaw, '"');
+    const xpathCanonicalGeneric = window.AQT.generalizeXpathTag(xpathCanonical);
+    const xpathPlaywrightGeneric = window.AQT.generalizeXpathTag(xpathPlaywright);
 
     const cssSingleQuoted = window.AQT.escapeJsSingleQuotedString(cssJsStyle);
-    const xpathSingleQuoted = window.AQT.escapeJsSingleQuotedString(xpathCanonical);
-    const xpathPlaywrightSingleQuoted = window.AQT.escapeJsSingleQuotedString(xpathPlaywright);
+    const xpathSingleQuoted = window.AQT.escapeJsSingleQuotedString(xpathCanonicalGeneric);
+    const xpathPlaywrightSingleQuoted = window.AQT.escapeJsSingleQuotedString(xpathPlaywrightGeneric);
     const cssDoubleQuoted = window.AQT.escapeDoubleQuotedSnippet(cssJvmStyle);
-    const xpathDoubleQuoted = window.AQT.escapeDoubleQuotedSnippet(xpathCanonical);
+    const xpathDoubleQuoted = window.AQT.escapeDoubleQuotedSnippet(xpathCanonicalGeneric);
 
     if (framework === "selenide") {
         return candidate.type === "xpath"
@@ -1029,12 +1037,12 @@ window.AQT.formatFrameworkLocator = function (framework, language, candidate) {
     if (framework === "robot") {
         if (language === "Browser Library") {
             return candidate.type === "xpath"
-                ? `xpath=${xpathPlaywright}`
+                ? `xpath=${xpathPlaywrightGeneric}`
                 : `css=${cssJsStyle}`;
         }
 
         return candidate.type === "xpath"
-            ? `xpath:${xpathCanonical}`
+            ? `xpath:${xpathCanonicalGeneric}`
             : `css:${cssJvmStyle}`;
     }
 
