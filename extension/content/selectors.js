@@ -1029,7 +1029,7 @@ window.AQT.formatFrameworkLocator = function (framework, language, candidate) {
     if (framework === "robot") {
         if (language === "Browser Library") {
             return candidate.type === "xpath"
-                ? `xpath=${xpathCanonical}`
+                ? `xpath=${xpathPlaywright}`
                 : `css=${cssJsStyle}`;
         }
 
