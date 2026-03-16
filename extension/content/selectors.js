@@ -941,15 +941,17 @@ window.AQT.normalizeCssAttributeQuotes = function (selector, quoteChar) {
     });
 };
 
-window.AQT.normalizeXpathAttributeQuotes = function (xpath) {
+window.AQT.normalizeXpathAttributeQuotes = function (xpath, quoteChar = "'") {
     if (!xpath) return "";
+
+    const safeQuote = quoteChar === '"' ? '"' : "'";
 
     return String(xpath).replace(/@([a-zA-Z0-9:_-]+)=["']([^"']*)["']/g, (_match, attr, value) => {
         const normalizedValue = String(value)
             .replace(/\\/g, "\\\\")
-            .replace(/'/g, "\\'");
+            .replace(new RegExp(safeQuote, "g"), `\\${safeQuote}`);
 
-        return `@${attr}='${normalizedValue}'`;
+        return `@${attr}=${safeQuote}${normalizedValue}${safeQuote}`;
     });
 };
 
@@ -969,10 +971,12 @@ window.AQT.formatFrameworkLocator = function (framework, language, candidate) {
 
     const cssJsStyle = window.AQT.normalizeCssAttributeQuotes(cssRaw, '"');
     const cssJvmStyle = window.AQT.normalizeCssAttributeQuotes(cssRaw, "'");
-    const xpathCanonical = window.AQT.normalizeXpathAttributeQuotes(xpathRaw);
+    const xpathCanonical = window.AQT.normalizeXpathAttributeQuotes(xpathRaw, "'");
+    const xpathPlaywright = window.AQT.normalizeXpathAttributeQuotes(xpathRaw, '"');
 
     const cssSingleQuoted = window.AQT.escapeJsSingleQuotedString(cssJsStyle);
     const xpathSingleQuoted = window.AQT.escapeJsSingleQuotedString(xpathCanonical);
+    const xpathPlaywrightSingleQuoted = window.AQT.escapeJsSingleQuotedString(xpathPlaywright);
     const cssDoubleQuoted = window.AQT.escapeDoubleQuotedSnippet(cssJvmStyle);
     const xpathDoubleQuoted = window.AQT.escapeDoubleQuotedSnippet(xpathCanonical);
 
@@ -1007,12 +1011,12 @@ window.AQT.formatFrameworkLocator = function (framework, language, candidate) {
 
         if (language === "Python") {
             return candidate.type === "xpath"
-                ? `page.locator("xpath=${xpathDoubleQuoted}")`
+                ? `page.locator('${xpathPlaywrightSingleQuoted}')`
                 : `page.locator('${cssSingleQuoted}')`;
         }
 
         return candidate.type === "xpath"
-            ? `page.locator("xpath=${xpathDoubleQuoted}")`
+            ? `page.locator('${xpathPlaywrightSingleQuoted}')`
             : `page.locator('${cssSingleQuoted}')`;
     }
 
