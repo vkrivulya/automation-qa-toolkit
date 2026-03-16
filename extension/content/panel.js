@@ -88,7 +88,12 @@ window.AQT.buildPanelContent = function (selectors, settings) {
     const stability = window.AQT.getStabilityView(model.stability);
 
     const altHtml = model.alternatives
-        .map((item) => `<div class="aqt-alt-item"><code>${escapeHtml(item)}</code><button class="aqt-panel-inline-copy" data-copy="${escapeAttribute(item)}">Copy</button></div>`)
+        .map((item) => `
+        <div class="aqt-alt-item">
+          <div class="aqt-alt-label">${escapeHtml(item.label || "Alternative")}</div>
+          <code>${escapeHtml(item.snippet)}</code>
+          <button class="aqt-panel-inline-copy" data-copy="${escapeAttribute(item.snippet)}">Copy</button>
+        </div>`)
         .join("");
 
     return `

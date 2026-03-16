@@ -284,3 +284,10 @@
 .aqt-panel-actions {
     margin-top: 6px;
 }
+
+.aqt-alt-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #334155;
+    margin-bottom: 6px;
+}

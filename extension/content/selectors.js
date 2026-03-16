@@ -1007,12 +1007,12 @@ window.AQT.formatFrameworkLocator = function (framework, language, candidate) {
 
         if (language === "Python") {
             return candidate.type === "xpath"
-                ? `page.locator('xpath=${xpathSingleQuoted}')`
+                ? `page.locator("xpath=${xpathDoubleQuoted}")`
                 : `page.locator('${cssSingleQuoted}')`;
         }
 
         return candidate.type === "xpath"
-            ? `page.locator('xpath=${xpathSingleQuoted}')`
+            ? `page.locator("xpath=${xpathDoubleQuoted}")`
             : `page.locator('${cssSingleQuoted}')`;
     }
 
@@ -1032,6 +1032,41 @@ window.AQT.formatFrameworkLocator = function (framework, language, candidate) {
     return candidate.value;
 };
 
+window.AQT.getAlternativeCandidates = function (settings, selectors, orderedCandidates, primaryCandidate) {
+    if (settings.framework === "playwright") {
+        const alternatives = [];
+
+        if (selectors.xpath) {
+            alternatives.push({
+                type: "xpath",
+                raw: selectors.xpath,
+                value: selectors.xpath,
+                meta: selectors.selectorMeta?.xpath || { strategy: "xpath", stability: "medium" },
+                label: "XPath"
+            });
+        }
+
+        if (selectors.playwrightTextAlternative) {
+            alternatives.push({
+                type: "playwright",
+                raw: selectors.playwrightTextAlternative,
+                value: selectors.playwrightTextAlternative,
+                meta: { strategy: "text", stability: "medium" },
+                label: "Text locator"
+            });
+        }
+
+        return alternatives
+            .filter((candidate) => candidate.value && candidate.value !== primaryCandidate.value)
+            .slice(0, 2);
+    }
+
+    return orderedCandidates
+        .filter((candidate) => candidate.value !== primaryCandidate.value)
+        .slice(0, 2)
+        .map((candidate) => ({ ...candidate, label: candidate.type === "xpath" ? "XPath" : "Alternative" }));
+};
+
 window.AQT.getFrameworkLocatorModel = function (selectors, rawSettings) {
     const settings = window.AQT.normalizeSettings(rawSettings);
     const candidates = window.AQT.getFrameworkCandidates(selectors, settings.framework);
@@ -1042,12 +1077,16 @@ window.AQT.getFrameworkLocatorModel = function (selectors, rawSettings) {
         return window.AQT.strategyRank(b.meta?.strategy) - window.AQT.strategyRank(a.meta?.strategy);
     });
 
-    const primaryCandidate = ordered[0] || { value: selectors.recommendedSelector || selectors.css || selectors.xpath, raw: selectors.recommendedSelector, type: "css", meta: { stability: selectors.stability, strategy: selectors.strategy } };
-    const alternatives = ordered.slice(1, 3)
-        .map((candidate) => window.AQT.formatFrameworkLocator(settings.framework, settings.language, candidate))
-        .filter(Boolean);
+    const primaryCandidate = ordered[0] || { value: selectors.recommendedSelector || selectors.css || selectors.xpath, raw: selectors.recommendedSelector, type: "css", meta: { stability: selectors.stability, strategy: selectors.strategy }, label: "Primary" };
+    const alternativeCandidates = window.AQT.getAlternativeCandidates(settings, selectors, ordered, primaryCandidate);
 
     const primary = window.AQT.formatFrameworkLocator(settings.framework, settings.language, primaryCandidate);
+    const alternatives = alternativeCandidates
+        .map((candidate) => ({
+            label: candidate.label,
+            snippet: window.AQT.formatFrameworkLocator(settings.framework, settings.language, candidate)
+        }))
+        .filter((item) => item.snippet);
 
     return {
         settings,
