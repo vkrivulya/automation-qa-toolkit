@@ -845,3 +845,329 @@ Playwright (text alt) [medium]: ${playwrightTextAlternative}` : "");
         allSelectorsText
     };
 };
+
+window.AQT.frameworkConfig = {
+    selenide: {
+        title: "Selenide",
+        languages: ["Java"]
+    },
+    selenium: {
+        title: "Selenium",
+        languages: ["Java", "Python"]
+    },
+    webdriverio: {
+        title: "WebdriverIO",
+        languages: ["TypeScript"]
+    },
+    playwright: {
+        title: "Playwright",
+        languages: ["TypeScript", "Python"]
+    },
+    cypress: {
+        title: "CypressJS",
+        languages: ["TypeScript"]
+    },
+    robot: {
+        title: "Robot Framework",
+        languages: ["SeleniumLibrary", "Browser Library"]
+    }
+};
+
+window.AQT.getDefaultSettings = function () {
+    return {
+        framework: "selenide",
+        language: "Java"
+    };
+};
+
+window.AQT.normalizeSettings = function (settings) {
+    const defaults = window.AQT.getDefaultSettings();
+    const frameworkKey = settings?.framework;
+    const framework = window.AQT.frameworkConfig[frameworkKey] ? frameworkKey : defaults.framework;
+    const languagePool = window.AQT.frameworkConfig[framework].languages;
+    const language = languagePool.includes(settings?.language) ? settings.language : languagePool[0];
+
+    return { framework, language };
+};
+
+window.AQT.getFrameworkCandidates = function (selectors, framework) {
+    const meta = selectors.selectorMeta || {};
+    const candidates = {
+        selenide: [
+            { value: selectors.selenideCss, raw: selectors.css, type: "css", meta: meta.selenideCss || meta.css },
+            { value: selectors.selenideXpath, raw: selectors.xpath, type: "xpath", meta: meta.selenideXpath || meta.xpath },
+            selectors.selenideXpathTextAlternative ? { value: selectors.selenideXpathTextAlternative, raw: selectors.xpathTextAlternative, type: "xpath", meta: { stability: "medium", strategy: "text" } } : null
+        ],
+        selenium: [
+            { value: selectors.css, raw: selectors.css, type: "css", meta: meta.css },
+            { value: selectors.xpath, raw: selectors.xpath, type: "xpath", meta: meta.xpath },
+            selectors.xpathTextAlternative ? { value: selectors.xpathTextAlternative, raw: selectors.xpathTextAlternative, type: "xpath", meta: { stability: "medium", strategy: "text" } } : null
+        ],
+        webdriverio: [
+            { value: selectors.css, raw: selectors.css, type: "css", meta: meta.css },
+            { value: selectors.xpath, raw: selectors.xpath, type: "xpath", meta: meta.xpath },
+            selectors.xpathTextAlternative ? { value: selectors.xpathTextAlternative, raw: selectors.xpathTextAlternative, type: "xpath", meta: { stability: "medium", strategy: "text" } } : null
+        ],
+        playwright: [
+            { value: selectors.playwright, raw: selectors.css, type: "playwright", meta: meta.playwright },
+            selectors.playwrightTextAlternative ? { value: selectors.playwrightTextAlternative, raw: selectors.playwrightTextAlternative, type: "playwright", meta: { stability: "medium", strategy: "text" } } : null,
+            { value: selectors.css, raw: selectors.css, type: "css", meta: meta.css }
+        ],
+        cypress: [
+            { value: selectors.css, raw: selectors.css, type: "css", meta: meta.css },
+            { value: selectors.xpath, raw: selectors.xpath, type: "xpath", meta: meta.xpath },
+            selectors.xpathTextAlternative ? { value: selectors.xpathTextAlternative, raw: selectors.xpathTextAlternative, type: "xpath", meta: { stability: "medium", strategy: "text" } } : null
+        ],
+        robot: [
+            { value: selectors.css, raw: selectors.css, type: "css", meta: meta.css },
+            { value: selectors.xpath, raw: selectors.xpath, type: "xpath", meta: meta.xpath }
+        ]
+    };
+
+    return (candidates[framework] || []).filter(Boolean);
+};
+
+window.AQT.normalizeCssAttributeQuotes = function (selector, quoteChar) {
+    if (!selector) return "";
+
+    const safeQuote = quoteChar === "'" ? "'" : '"';
+
+    return String(selector).replace(/\[([^=\]]+)=["']([^"'\]]*)["']\]/g, (_match, attr, value) => {
+        const normalizedValue = String(value)
+            .replace(/\\/g, "\\\\")
+            .replace(new RegExp(safeQuote, "g"), `\\${safeQuote}`);
+
+        return `[${attr}=${safeQuote}${normalizedValue}${safeQuote}]`;
+    });
+};
+
+window.AQT.normalizeXpathAttributeQuotes = function (xpath, quoteChar = "'") {
+    if (!xpath) return "";
+
+    const safeQuote = quoteChar === '"' ? '"' : "'";
+
+    return String(xpath).replace(/@([a-zA-Z0-9:_-]+)=["']([^"']*)["']/g, (_match, attr, value) => {
+        const normalizedValue = String(value)
+            .replace(/\\/g, "\\\\")
+            .replace(new RegExp(safeQuote, "g"), `\\${safeQuote}`);
+
+        return `@${attr}=${safeQuote}${normalizedValue}${safeQuote}`;
+    });
+};
+
+window.AQT.escapeDoubleQuotedSnippet = function (value) {
+    if (value == null) return "";
+
+    return String(value)
+        .replace(/\\/g, "\\\\")
+        .replace(/"/g, '\\"');
+};
+
+window.AQT.generalizeXpathTag = function (xpath) {
+    if (!xpath) return "";
+
+    return String(xpath).replace(/^\/\/[a-zA-Z][a-zA-Z0-9_-]*/u, "//*");
+};
+
+window.AQT.formatFrameworkLocator = function (framework, language, candidate) {
+    if (!candidate || !candidate.value) return "";
+
+    const cssRaw = candidate.raw || candidate.value;
+    const xpathRaw = candidate.raw || candidate.value;
+
+    const cssJsStyle = window.AQT.normalizeCssAttributeQuotes(cssRaw, '"');
+    const cssJvmStyle = window.AQT.normalizeCssAttributeQuotes(cssRaw, "'");
+    const xpathCanonical = window.AQT.normalizeXpathAttributeQuotes(xpathRaw, "'");
+    const xpathPlaywright = window.AQT.normalizeXpathAttributeQuotes(xpathRaw, '"');
+    const xpathCanonicalGeneric = window.AQT.generalizeXpathTag(xpathCanonical);
+    const xpathPlaywrightGeneric = window.AQT.generalizeXpathTag(xpathPlaywright);
+
+    const cssSingleQuoted = window.AQT.escapeJsSingleQuotedString(cssJsStyle);
+    const xpathSingleQuoted = window.AQT.escapeJsSingleQuotedString(xpathCanonicalGeneric);
+    const xpathPlaywrightSingleQuoted = window.AQT.escapeJsSingleQuotedString(xpathPlaywrightGeneric);
+    const cssDoubleQuoted = window.AQT.escapeDoubleQuotedSnippet(cssJvmStyle);
+    const xpathDoubleQuoted = window.AQT.escapeDoubleQuotedSnippet(xpathCanonicalGeneric);
+
+    if (framework === "selenide") {
+        return candidate.type === "xpath"
+            ? `$x("${xpathDoubleQuoted}")`
+            : `$("${cssDoubleQuoted}")`;
+    }
+
+    if (framework === "selenium") {
+        if (language === "Python") {
+            return candidate.type === "xpath"
+                ? `driver.find_element(By.XPATH, "${xpathDoubleQuoted}")`
+                : `driver.find_element(By.CSS_SELECTOR, "${cssDoubleQuoted}")`;
+        }
+
+        return candidate.type === "xpath"
+            ? `driver.findElement(By.xpath("${xpathDoubleQuoted}"));`
+            : `driver.findElement(By.cssSelector("${cssDoubleQuoted}"));`;
+    }
+
+    if (framework === "webdriverio") {
+        return candidate.type === "xpath"
+            ? `$("${xpathDoubleQuoted}")`
+            : `$('${cssSingleQuoted}')`;
+    }
+
+    if (framework === "playwright") {
+        if (candidate.type === "playwright") {
+            return candidate.value;
+        }
+
+        if (language === "Python") {
+            return candidate.type === "xpath"
+                ? `page.locator('${xpathPlaywrightSingleQuoted}')`
+                : `page.locator('${cssSingleQuoted}')`;
+        }
+
+        return candidate.type === "xpath"
+            ? `page.locator('${xpathPlaywrightSingleQuoted}')`
+            : `page.locator('${cssSingleQuoted}')`;
+    }
+
+    if (framework === "cypress") {
+        return candidate.type === "xpath"
+            ? `cy.xpath('${xpathPlaywrightSingleQuoted}')`
+            : `cy.get('${cssSingleQuoted}')`;
+    }
+
+    if (framework === "robot") {
+        if (language === "Browser Library") {
+            return candidate.type === "xpath"
+                ? `xpath=${xpathPlaywrightGeneric}`
+                : `css=${cssJsStyle}`;
+        }
+
+        return candidate.type === "xpath"
+            ? `xpath:${xpathCanonicalGeneric}`
+            : `css:${cssJvmStyle}`;
+    }
+
+
+    return candidate.value;
+};
+
+window.AQT.extractAttributeValue = function (selector, attributeName) {
+    if (!selector || !attributeName) return "";
+
+    const value = String(selector);
+    const cssDoubleStart = `[${attributeName}="`;
+    const cssSingleStart = `[${attributeName}='`;
+    const xpathDoubleStart = `@${attributeName}="`;
+    const xpathSingleStart = `@${attributeName}='`;
+
+    const extractByStart = (startToken, endToken) => {
+        const startIndex = value.indexOf(startToken);
+
+        if (startIndex < 0) return "";
+
+        const contentStart = startIndex + startToken.length;
+        const endIndex = value.indexOf(endToken, contentStart);
+
+        if (endIndex < 0) return "";
+
+        return value.slice(contentStart, endIndex);
+    };
+
+    return (
+        extractByStart(cssDoubleStart, '"]')
+        || extractByStart(cssSingleStart, "']")
+        || extractByStart(xpathDoubleStart, '"')
+        || extractByStart(xpathSingleStart, "'")
+    );
+};
+
+window.AQT.getAlternativeCandidates = function (settings, selectors, orderedCandidates, primaryCandidate) {
+    if (settings.framework === "playwright") {
+        const alternatives = [];
+
+        if (selectors.xpath) {
+            alternatives.push({
+                type: "xpath",
+                raw: selectors.xpath,
+                value: selectors.xpath,
+                meta: selectors.selectorMeta?.xpath || { strategy: "xpath", stability: "medium" },
+                label: "XPath"
+            });
+        }
+
+        const testIdValue = window.AQT.extractAttributeValue(selectors.css, "data-testid")
+            || window.AQT.extractAttributeValue(selectors.xpath, "data-testid");
+
+        if (testIdValue) {
+            const escapedTestId = window.AQT.escapeJsSingleQuotedString(testIdValue);
+
+            alternatives.push({
+                type: "playwright",
+                raw: `page.getByTestId('${escapedTestId}')`,
+                value: `page.getByTestId('${escapedTestId}')`,
+                meta: { strategy: "data-testid", stability: "stable" },
+                label: "getByTestId",
+                hint: "Playwright best practice"
+            });
+        }
+
+        if (selectors.playwrightTextAlternative) {
+            alternatives.push({
+                type: "playwright",
+                raw: selectors.playwrightTextAlternative,
+                value: selectors.playwrightTextAlternative,
+                meta: { strategy: "text", stability: "medium" },
+                label: "Text locator"
+            });
+        }
+
+        return alternatives
+            .filter((candidate) => candidate.value && candidate.value !== primaryCandidate.value)
+            .slice(0, 2);
+    }
+
+    return orderedCandidates
+        .filter((candidate) => candidate.value !== primaryCandidate.value)
+        .slice(0, 2)
+        .map((candidate) => ({
+            ...candidate,
+            label: candidate.type === "xpath" ? "XPath" : "Alternative",
+            hint: settings.framework === "cypress" && candidate.type === "xpath"
+                ? "Requires cypress-xpath plugin"
+                : candidate.hint
+        }));
+};
+
+window.AQT.getFrameworkLocatorModel = function (selectors, rawSettings) {
+    const settings = window.AQT.normalizeSettings(rawSettings);
+    const candidates = window.AQT.getFrameworkCandidates(selectors, settings.framework);
+
+    const ordered = [...candidates].sort((a, b) => {
+        const stabilityDiff = window.AQT.stabilityRank(b.meta?.stability) - window.AQT.stabilityRank(a.meta?.stability);
+        if (stabilityDiff !== 0) return stabilityDiff;
+        return window.AQT.strategyRank(b.meta?.strategy) - window.AQT.strategyRank(a.meta?.strategy);
+    });
+
+    const primaryCandidate = ordered[0] || { value: selectors.recommendedSelector || selectors.css || selectors.xpath, raw: selectors.recommendedSelector, type: "css", meta: { stability: selectors.stability, strategy: selectors.strategy }, label: "Primary" };
+    const alternativeCandidates = window.AQT.getAlternativeCandidates(settings, selectors, ordered, primaryCandidate);
+
+    const primary = window.AQT.formatFrameworkLocator(settings.framework, settings.language, primaryCandidate);
+    const alternatives = alternativeCandidates
+        .map((candidate) => ({
+            label: candidate.label,
+            hint: candidate.hint,
+            snippet: window.AQT.formatFrameworkLocator(settings.framework, settings.language, candidate)
+        }))
+        .filter((item) => item.snippet);
+
+    return {
+        settings,
+        frameworkTitle: window.AQT.frameworkConfig[settings.framework].title,
+        primary,
+        primaryHint: settings.framework === "cypress" && primaryCandidate.type === "xpath"
+            ? "Requires cypress-xpath plugin"
+            : "",
+        alternatives,
+        strategy: primaryCandidate.meta?.strategy || selectors.strategy,
+        stability: primaryCandidate.meta?.stability || selectors.stability
+    };
+};

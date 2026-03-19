@@ -5,12 +5,25 @@
     <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-<h2>Automation QA Toolkit</h2>
+<div class="popup-shell">
+    <header class="popup-header">
+        <h2>Automation QA Toolkit</h2>
+        <p>Element picker settings</p>
+    </header>
 
-<button id="startPicker">Start element picker</button>
+    <section class="settings-card">
+        <h3>Settings</h3>
 
-<div id="result">
-    <p>No element selected</p>
+        <label class="field-label" for="frameworkSelect">Framework</label>
+        <select id="frameworkSelect" class="settings-select"></select>
+
+        <label class="field-label" for="languageSelect">Programming language</label>
+        <select id="languageSelect" class="settings-select"></select>
+
+        <p class="hint" id="frameworkHint"></p>
+    </section>
+
+    <button id="startPicker" class="start-button">Start Element Picker</button>
 </div>
 
 <script src="popup.js"></script>
