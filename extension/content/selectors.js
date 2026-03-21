@@ -17,6 +17,20 @@ window.AQT.qaAttributePriority = [
     "data-selector"
 ];
 
+window.AQT.interactiveRoleSelector = [
+    '[role="button"]',
+    '[role="link"]',
+    '[role="textbox"]',
+    '[role="searchbox"]',
+    '[role="combobox"]',
+    '[role="checkbox"]',
+    '[role="radio"]',
+    '[role="switch"]',
+    '[role="tab"]',
+    '[role="option"]',
+    '[contenteditable="true"]'
+].join(", ");
+
 window.AQT.findBestDescendantTarget = function (element) {
     if (!element || !element.querySelector) {
         return null;
@@ -26,18 +40,64 @@ window.AQT.findBestDescendantTarget = function (element) {
         .map((attr) => `[${attr}]`)
         .join(", ");
 
-    const preferredSelector = `${qaSelector}, a, button, input, select, textarea`;
+    const preferredSelector = `${qaSelector}, a, button, input, select, textarea, ${window.AQT.interactiveRoleSelector}`;
 
     return element.querySelector(preferredSelector);
 };
 
+window.AQT.isInteractiveElement = function (element) {
+    if (!element || !element.tagName) {
+        return false;
+    }
+
+    const interactiveTags = ["BUTTON", "A", "INPUT", "SELECT", "TEXTAREA", "OPTION"];
+
+    if (interactiveTags.includes(element.tagName)) {
+        return true;
+    }
+
+    const role = element.getAttribute && element.getAttribute("role");
+
+    return Boolean(
+        role && ["button", "link", "textbox", "searchbox", "combobox", "checkbox", "radio", "switch", "tab", "option"].includes(role)
+    );
+};
+
+window.AQT.isGenericContainerTarget = function (element) {
+    if (!element || !element.tagName) {
+        return false;
+    }
+
+    return ["FORM", "MAIN", "SECTION", "ARTICLE", "NAV", "ASIDE", "HEADER", "FOOTER"].includes(element.tagName);
+};
+
 window.AQT.getBestTarget = function (element) {
-    const clickableTags = ["BUTTON", "A", "INPUT", "SELECT", "TEXTAREA"];
+    if (!element) {
+        return null;
+    }
+
+    if (window.AQT.isInteractiveElement(element)) {
+        return element;
+    }
+
+    const closestInteractive = element.closest
+        ? element.closest(`a, button, input, select, textarea, ${window.AQT.interactiveRoleSelector}`)
+        : null;
+
+    if (closestInteractive) {
+        return closestInteractive;
+    }
+
+    const descendantTarget = window.AQT.findBestDescendantTarget(element);
+
+    if (descendantTarget) {
+        return descendantTarget;
+    }
 
     let current = element;
 
     while (current && current !== document.body) {
-        if (clickableTags.includes(current.tagName)) {
+        if (window.AQT.isInteractiveElement(current)) {
             return current;
         }
 
@@ -45,24 +105,22 @@ window.AQT.getBestTarget = function (element) {
             const hasQaAttribute = window.AQT.qaAttributePriority
                 .some((attr) => current.getAttribute(attr));
 
-            if (
-                hasQaAttribute ||
-                current.id ||
+            if (hasQaAttribute) {
+                return current;
+            }
+
+            const hasUsefulAttributes = Boolean(
                 current.getAttribute("aria-label") ||
                 current.getAttribute("name") ||
                 current.getAttribute("href")
-            ) {
+            );
+
+            if (!window.AQT.isGenericContainerTarget(current) && (current.id || hasUsefulAttributes)) {
                 return current;
             }
         }
 
         current = current.parentElement;
-    }
-
-    const descendantTarget = window.AQT.findBestDescendantTarget(element);
-
-    if (descendantTarget) {
-        return descendantTarget;
     }
 
     return element;
