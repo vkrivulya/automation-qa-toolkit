@@ -31,6 +31,66 @@ window.AQT.interactiveRoleSelector = [
     '[contenteditable="true"]'
 ].join(", ");
 
+window.AQT.compositeControlSelector = [
+    '.ant-select',
+    '.ant-select-selector',
+    '.ant-picker',
+    '.ant-input-affix-wrapper',
+    '.ant-input-number',
+    '[role="combobox"]',
+    '[aria-haspopup="listbox"]',
+    '[aria-haspopup="dialog"]'
+].join(", ");
+
+window.AQT.isVisiblePickerTarget = function (element) {
+    if (!element || !element.getBoundingClientRect) {
+        return false;
+    }
+
+    const style = window.getComputedStyle ? window.getComputedStyle(element) : null;
+
+    if (style) {
+        if (style.display === "none" || style.visibility === "hidden") {
+            return false;
+        }
+
+        if (Number(style.opacity || "1") === 0) {
+            return false;
+        }
+    }
+
+    const rect = element.getBoundingClientRect();
+
+    return rect.width > 0 && rect.height > 0;
+};
+
+window.AQT.getVisibleCompositeTarget = function (element) {
+    if (!element || !element.closest) {
+        return null;
+    }
+
+    const compositeAncestor = element.closest(window.AQT.compositeControlSelector);
+
+    if (!compositeAncestor) {
+        return null;
+    }
+
+    const visibleCandidates = [
+        compositeAncestor.matches(".ant-select")
+            ? compositeAncestor.querySelector(".ant-select-selector")
+            : null,
+        compositeAncestor.matches(".ant-picker")
+            ? compositeAncestor
+            : null,
+        compositeAncestor.matches(".ant-input-affix-wrapper, .ant-input-number")
+            ? compositeAncestor
+            : null,
+        compositeAncestor
+    ].filter(Boolean);
+
+    return visibleCandidates.find((candidate) => window.AQT.isVisiblePickerTarget(candidate)) || null;
+};
+
 window.AQT.findBestDescendantTarget = function (element) {
     if (!element || !element.querySelector) {
         return null;
@@ -76,7 +136,21 @@ window.AQT.getBestTarget = function (element) {
         return null;
     }
 
+    const visibleCompositeTarget = window.AQT.getVisibleCompositeTarget(element);
+
+    if (visibleCompositeTarget) {
+        return visibleCompositeTarget;
+    }
+
     if (window.AQT.isInteractiveElement(element)) {
+        if (!window.AQT.isVisiblePickerTarget(element)) {
+            const interactiveCompositeTarget = window.AQT.getVisibleCompositeTarget(element);
+
+            if (interactiveCompositeTarget) {
+                return interactiveCompositeTarget;
+            }
+        }
+
         return element;
     }
 
@@ -85,12 +159,28 @@ window.AQT.getBestTarget = function (element) {
         : null;
 
     if (closestInteractive) {
+        if (!window.AQT.isVisiblePickerTarget(closestInteractive)) {
+            const closestCompositeTarget = window.AQT.getVisibleCompositeTarget(closestInteractive);
+
+            if (closestCompositeTarget) {
+                return closestCompositeTarget;
+            }
+        }
+
         return closestInteractive;
     }
 
     const descendantTarget = window.AQT.findBestDescendantTarget(element);
 
     if (descendantTarget) {
+        if (!window.AQT.isVisiblePickerTarget(descendantTarget)) {
+            const descendantCompositeTarget = window.AQT.getVisibleCompositeTarget(descendantTarget);
+
+            if (descendantCompositeTarget) {
+                return descendantCompositeTarget;
+            }
+        }
+
         return descendantTarget;
     }
 
