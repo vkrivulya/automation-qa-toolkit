@@ -185,6 +185,7 @@ window.AQT.strategyRank = function (strategy) {
     if (strategy === "id") return 70;
     if (strategy === "role+name" || strategy === "aria-label" || strategy === "alt") return 60;
     if (strategy === "text") return 55;
+    if (strategy === "context-text") return 50;
     if (strategy === "href") return 45;
     if (strategy === "name") return 40;
     if (strategy === "class") return 30;
@@ -453,6 +454,7 @@ window.AQT.isLikelyGeneratedId = function (idValue) {
 
     return (
         /__[a-z0-9]+_[a-z0-9]+/i.test(idValue) ||
+        /^[a-z]+(?:_[a-z]+)+_[0-9]{1,4}$/i.test(idValue) ||
         /[a-f0-9]{8,}/i.test(idValue) ||
         /[0-9]{4,}/.test(idValue)
     );
@@ -467,6 +469,176 @@ window.AQT.isUsefulHref = function (hrefValue) {
     if (href.startsWith("javascript:")) return false;
 
     return true;
+};
+
+
+window.AQT.getStableText = function (value) {
+    const text = window.AQT.normalizeText(value);
+
+    if (!text || text.length < 2 || text.length > 80) {
+        return "";
+    }
+
+    return text;
+};
+
+window.AQT.getContextTextCandidates = function (element) {
+    if (!element || !element.closest) {
+        return [];
+    }
+
+    const candidates = [];
+    const pushCandidate = (value) => {
+        const text = window.AQT.getStableText(value);
+
+        if (text && !candidates.includes(text)) {
+            candidates.push(text);
+        }
+    };
+
+    pushCandidate(element.getAttribute && element.getAttribute("placeholder"));
+    pushCandidate(element.getAttribute && element.getAttribute("aria-label"));
+    pushCandidate(element.getAttribute && element.getAttribute("title"));
+
+    const labelledBy = element.getAttribute && element.getAttribute("aria-labelledby");
+    if (labelledBy) {
+        labelledBy
+            .split(/\s+/)
+            .map((id) => document.getElementById(id))
+            .filter(Boolean)
+            .forEach((labelElement) => pushCandidate(labelElement.innerText || labelElement.textContent));
+    }
+
+    if (element.id) {
+        const escapedId = window.AQT.escapeCssIdentifier(element.id);
+        const label = document.querySelector(`label[for="${escapedId}"]`);
+        if (label) {
+            pushCandidate(label.innerText || label.textContent);
+        }
+    }
+
+    const placeholderNode = element.parentElement && element.parentElement.parentElement
+        ? element.parentElement.parentElement.querySelector('.ant-select-selection-placeholder')
+        : null;
+
+    if (placeholderNode) {
+        pushCandidate(placeholderNode.innerText || placeholderNode.textContent);
+    }
+
+    const selectedItemNode = element.parentElement && element.parentElement.parentElement
+        ? element.parentElement.parentElement.querySelector('.ant-select-selection-item')
+        : null;
+
+    if (selectedItemNode) {
+        pushCandidate(selectedItemNode.innerText || selectedItemNode.textContent);
+    }
+
+    const containers = [
+        element.closest('.ant-form-item'),
+        element.closest('[class*="form-item"]'),
+        element.closest('[class*="FormItem"]'),
+        element.closest('[class*="wrapper"]')
+    ].filter(Boolean);
+
+    containers.forEach((container) => {
+        Array.from(container.querySelectorAll('label, legend, [class*="label"], [class*="Label"]'))
+            .forEach((node) => pushCandidate(node.innerText || node.textContent));
+    });
+
+    return candidates;
+};
+
+window.AQT.getContextualXpathMeta = function (element, tag) {
+    if (!element) return null;
+
+    const contextTexts = window.AQT.getContextTextCandidates(element);
+    const role = element.getAttribute && element.getAttribute('role');
+
+    for (const text of contextTexts) {
+        const escapedText = window.AQT.escapeXpathValue(text);
+        const rolePredicate = role ? ` and @role=${window.AQT.escapeXpathValue(role)}` : '';
+        const xpath = `//*[normalize-space()=${escapedText}]/ancestor::*[self::label or self::div or self::span][1]//${tag}${rolePredicate}`;
+
+        const count = document.evaluate(
+            `count(${xpath})`,
+            document,
+            null,
+            XPathResult.NUMBER_TYPE,
+            null
+        ).numberValue;
+
+        if (count === 1) {
+            return {
+                value: xpath,
+                strategy: 'context-text',
+                stability: 'medium',
+                text
+            };
+        }
+
+        const antSelectXpath = `//*[normalize-space()=${escapedText}]/ancestor::*[contains(@class, 'ant-select') or contains(@class, 'ant-select-selector')][1]//${tag}${rolePredicate}`;
+        const antSelectCount = document.evaluate(
+            `count(${antSelectXpath})`,
+            document,
+            null,
+            XPathResult.NUMBER_TYPE,
+            null
+        ).numberValue;
+
+        if (antSelectCount === 1) {
+            return {
+                value: antSelectXpath,
+                strategy: 'context-text',
+                stability: 'medium',
+                text
+            };
+        }
+    }
+
+    return null;
+};
+
+window.AQT.getDynamicIdMeta = function (elementInfo, tag) {
+    if (!elementInfo || !elementInfo.id) {
+        return null;
+    }
+
+    const escapedId = window.AQT.escapeCssIdentifier(elementInfo.id);
+    const escapedXpath = window.AQT.escapeXpathValue(elementInfo.id);
+    const escapedJs = window.AQT.escapeJsSingleQuotedString(elementInfo.id);
+
+    return {
+        css: {
+            value: `#${escapedId}`,
+            strategy: 'id',
+            stability: 'weak',
+            hint: 'Dynamic id detected; keep as backup locator.'
+        },
+        xpath: {
+            value: `//${tag}[@id=${escapedXpath}]`,
+            strategy: 'id',
+            stability: 'weak',
+            hint: 'Dynamic id detected; keep as backup locator.'
+        },
+        selenideCss: {
+            value: `$("#${escapedJs}")`,
+            strategy: 'id',
+            stability: 'weak',
+            hint: 'Dynamic id detected; keep as backup locator.'
+        },
+        selenideXpath: {
+            value: `$x("//${tag}[@id=${escapedXpath}]")`,
+            strategy: 'id',
+            stability: 'weak',
+            hint: 'Dynamic id detected; keep as backup locator.'
+        },
+        playwright: {
+            value: `page.locator('#${escapedJs}')`,
+            strategy: 'id',
+            stability: 'weak',
+            hint: 'Dynamic id detected; keep as backup locator.'
+        }
+    };
 };
 
 window.AQT.getSelectorQualityScore = function (selectors, sourceElement) {
@@ -487,6 +659,7 @@ window.AQT.getSelectorQualityScore = function (selectors, sourceElement) {
     if (strategy === "alt" || strategy === "aria-label" || strategy === "role+name") score += 35;
     if (strategy === "href") score += 30;
     if (strategy === "text") score += 25;
+    if (strategy === "context-text") score += 22;
     if (strategy === "name") score += 20;
     if (strategy === "class" || strategy === "class*") score += 10;
     if (strategy === "tag+nth") score -= 30;
@@ -526,8 +699,12 @@ window.AQT.generateSelectors = function (elementInfo, element) {
     let xpathTextAlternative = "";
     let selenideXpathTextAlternative = "";
     let playwrightTextAlternative = "";
+    let contextualHint = "";
 
     const qaAttr = window.AQT.getFirstQaAttribute(elementInfo);
+    const dynamicIdMeta = elementInfo.id && window.AQT.isLikelyGeneratedId(elementInfo.id)
+        ? window.AQT.getDynamicIdMeta(elementInfo, tag)
+        : null;
 
     if (qaAttr) {
         const escapedCss = window.AQT.escapeCssValue(qaAttr.value);
@@ -720,66 +897,110 @@ window.AQT.generateSelectors = function (elementInfo, element) {
                 strategy: textBasedSelectors.strategy,
                 stability: textBasedSelectors.stability
             };
-        } else if (elementInfo.name) {
-            const escapedName = window.AQT.escapeCssValue(elementInfo.name);
-            const escapedXpath = window.AQT.escapeXpathValue(elementInfo.name);
-            const escapedJs = window.AQT.escapeJsSingleQuotedString(elementInfo.name);
-
-            selectorMeta.css = {
-                value: `[name="${escapedName}"]`,
-                strategy: "name",
-                stability: "medium"
-            };
-            selectorMeta.xpath = {
-                value: `//${tag}[@name=${escapedXpath}]`,
-                strategy: "name",
-                stability: "medium"
-            };
-            selectorMeta.selenideCss = {
-                value: `$('[name="${escapedJs}"]')`,
-                strategy: "name",
-                stability: "medium"
-            };
-            selectorMeta.selenideXpath = {
-                value: `$x("//${tag}[@name=${escapedXpath}]")`,
-                strategy: "name",
-                stability: "medium"
-            };
-            selectorMeta.playwright = {
-                value: `page.locator('[name="${escapedJs}"]')`,
-                strategy: "name",
-                stability: "medium"
-            };
         } else {
-            const cssFallback = window.AQT.getCssFallbackMeta(element, tag);
-            const xpathFallback = window.AQT.getXpathFallbackMeta(element, tag);
+            const contextualXpath = window.AQT.getContextualXpathMeta(element, tag);
 
-            selectorMeta.css = {
-                value: cssFallback.value,
-                strategy: cssFallback.strategy,
-                stability: cssFallback.stability
-            };
-            selectorMeta.xpath = {
-                value: xpathFallback.value,
-                strategy: xpathFallback.strategy,
-                stability: xpathFallback.stability
-            };
-            selectorMeta.selenideCss = {
-                value: `$("${cssFallback.value}")`,
-                strategy: cssFallback.strategy,
-                stability: cssFallback.stability
-            };
-            selectorMeta.selenideXpath = {
-                value: `$x("${xpathFallback.value}")`,
-                strategy: xpathFallback.strategy,
-                stability: xpathFallback.stability
-            };
-            selectorMeta.playwright = {
-                value: `page.locator('${cssFallback.value}')`,
-                strategy: cssFallback.strategy,
-                stability: cssFallback.stability
-            };
+            if (contextualXpath) {
+                const cssFallback = window.AQT.getCssFallbackMeta(element, tag);
+                const contextText = window.AQT.escapeJsSingleQuotedString(contextualXpath.text);
+
+                selectorMeta.css = {
+                    value: cssFallback.value,
+                    strategy: cssFallback.strategy,
+                    stability: cssFallback.stability
+                };
+                selectorMeta.xpath = {
+                    value: contextualXpath.value,
+                    strategy: contextualXpath.strategy,
+                    stability: contextualXpath.stability
+                };
+                selectorMeta.selenideCss = {
+                    value: `$("${cssFallback.value}")`,
+                    strategy: cssFallback.strategy,
+                    stability: cssFallback.stability
+                };
+                selectorMeta.selenideXpath = {
+                    value: `$x("${contextualXpath.value}")`,
+                    strategy: contextualXpath.strategy,
+                    stability: contextualXpath.stability
+                };
+                selectorMeta.playwright = {
+                    value: elementInfo.role
+                        ? `page.getByRole('${window.AQT.escapeJsSingleQuotedString(elementInfo.role)}', { name: '${contextText}', exact: true })`
+                        : `page.locator('${window.AQT.escapeJsSingleQuotedString(contextualXpath.value)}')`,
+                    strategy: contextualXpath.strategy,
+                    stability: contextualXpath.stability
+                };
+                contextualHint = `Context text: ${contextualXpath.text}`;
+            } else if (elementInfo.name) {
+                const escapedName = window.AQT.escapeCssValue(elementInfo.name);
+                const escapedXpath = window.AQT.escapeXpathValue(elementInfo.name);
+                const escapedJs = window.AQT.escapeJsSingleQuotedString(elementInfo.name);
+
+                selectorMeta.css = {
+                    value: `[name="${escapedName}"]`,
+                    strategy: "name",
+                    stability: "medium"
+                };
+                selectorMeta.xpath = {
+                    value: `//${tag}[@name=${escapedXpath}]`,
+                    strategy: "name",
+                    stability: "medium"
+                };
+                selectorMeta.selenideCss = {
+                    value: `$('[name="${escapedJs}"]')`,
+                    strategy: "name",
+                    stability: "medium"
+                };
+                selectorMeta.selenideXpath = {
+                    value: `$x("//${tag}[@name=${escapedXpath}]")`,
+                    strategy: "name",
+                    stability: "medium"
+                };
+                selectorMeta.playwright = {
+                    value: `page.locator('[name="${escapedJs}"]')`,
+                    strategy: "name",
+                    stability: "medium"
+                };
+            } else {
+                const cssFallback = window.AQT.getCssFallbackMeta(element, tag);
+                const xpathFallback = window.AQT.getXpathFallbackMeta(element, tag);
+
+                selectorMeta.css = {
+                    value: cssFallback.value,
+                    strategy: cssFallback.strategy,
+                    stability: cssFallback.stability
+                };
+                selectorMeta.xpath = {
+                    value: xpathFallback.value,
+                    strategy: xpathFallback.strategy,
+                    stability: xpathFallback.stability
+                };
+                selectorMeta.selenideCss = {
+                    value: `$("${cssFallback.value}")`,
+                    strategy: cssFallback.strategy,
+                    stability: cssFallback.stability
+                };
+                selectorMeta.selenideXpath = {
+                    value: `$x("${xpathFallback.value}")`,
+                    strategy: xpathFallback.strategy,
+                    stability: xpathFallback.stability
+                };
+                selectorMeta.playwright = {
+                    value: `page.locator('${cssFallback.value}')`,
+                    strategy: cssFallback.strategy,
+                    stability: cssFallback.stability
+                };
+            }
         }
+    }
+
+    if (dynamicIdMeta) {
+        selectorMeta.dynamicIdCss = dynamicIdMeta.css;
+        selectorMeta.dynamicIdXpath = dynamicIdMeta.xpath;
+        selectorMeta.dynamicIdSelenideCss = dynamicIdMeta.selenideCss;
+        selectorMeta.dynamicIdSelenideXpath = dynamicIdMeta.selenideXpath;
+        selectorMeta.dynamicIdPlaywright = dynamicIdMeta.playwright;
     }
 
     const orderedSelectorKeys = Object.keys(selectorMeta)
@@ -842,7 +1063,9 @@ Playwright (text alt) [medium]: ${playwrightTextAlternative}` : "");
         xpathTextAlternative,
         selenideXpathTextAlternative,
         playwrightTextAlternative,
-        allSelectorsText
+        allSelectorsText,
+        contextualHint,
+        dynamicIdMeta
     };
 };
 
@@ -1125,16 +1348,32 @@ window.AQT.getAlternativeCandidates = function (settings, selectors, orderedCand
             .slice(0, 2);
     }
 
-    return orderedCandidates
+    const alternatives = orderedCandidates
         .filter((candidate) => candidate.value !== primaryCandidate.value)
-        .slice(0, 2)
         .map((candidate) => ({
             ...candidate,
-            label: candidate.type === "xpath" ? "XPath" : "Alternative",
+            label: candidate.label || (candidate.type === "xpath" ? "XPath" : "Alternative"),
             hint: settings.framework === "cypress" && candidate.type === "xpath"
                 ? "Requires cypress-xpath plugin"
                 : candidate.hint
         }));
+
+    const dynamicIdCandidateMap = {
+        selenide: selectors.dynamicIdMeta?.css ? { raw: selectors.dynamicIdMeta.css.value, value: selectors.dynamicIdMeta.css.value, type: 'css', meta: selectors.dynamicIdMeta.css, label: 'Dynamic id', hint: selectors.dynamicIdMeta.css.hint } : null,
+        selenium: selectors.dynamicIdMeta?.css ? { raw: selectors.dynamicIdMeta.css.value, value: selectors.dynamicIdMeta.css.value, type: 'css', meta: selectors.dynamicIdMeta.css, label: 'Dynamic id', hint: selectors.dynamicIdMeta.css.hint } : null,
+        webdriverio: selectors.dynamicIdMeta?.css ? { raw: selectors.dynamicIdMeta.css.value, value: selectors.dynamicIdMeta.css.value, type: 'css', meta: selectors.dynamicIdMeta.css, label: 'Dynamic id', hint: selectors.dynamicIdMeta.css.hint } : null,
+        playwright: selectors.dynamicIdMeta?.playwright ? { raw: selectors.dynamicIdMeta.playwright.value, value: selectors.dynamicIdMeta.playwright.value, type: 'playwright', meta: selectors.dynamicIdMeta.playwright, label: 'Dynamic id', hint: selectors.dynamicIdMeta.playwright.hint } : null,
+        cypress: selectors.dynamicIdMeta?.css ? { raw: selectors.dynamicIdMeta.css.value, value: selectors.dynamicIdMeta.css.value, type: 'css', meta: selectors.dynamicIdMeta.css, label: 'Dynamic id', hint: selectors.dynamicIdMeta.css.hint } : null,
+        robot: selectors.dynamicIdMeta?.css ? { raw: selectors.dynamicIdMeta.css.value, value: selectors.dynamicIdMeta.css.value, type: 'css', meta: selectors.dynamicIdMeta.css, label: 'Dynamic id', hint: selectors.dynamicIdMeta.css.hint } : null
+    };
+
+    const dynamicIdCandidate = dynamicIdCandidateMap[settings.framework];
+
+    if (dynamicIdCandidate && !alternatives.some((candidate) => candidate.value === dynamicIdCandidate.value)) {
+        alternatives.push(dynamicIdCandidate);
+    }
+
+    return alternatives.slice(0, 3);
 };
 
 window.AQT.getFrameworkLocatorModel = function (selectors, rawSettings) {
@@ -1165,7 +1404,7 @@ window.AQT.getFrameworkLocatorModel = function (selectors, rawSettings) {
         primary,
         primaryHint: settings.framework === "cypress" && primaryCandidate.type === "xpath"
             ? "Requires cypress-xpath plugin"
-            : "",
+            : selectors.contextualHint || "",
         alternatives,
         strategy: primaryCandidate.meta?.strategy || selectors.strategy,
         stability: primaryCandidate.meta?.stability || selectors.stability
