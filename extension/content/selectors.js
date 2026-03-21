@@ -1590,10 +1590,42 @@ window.AQT.getAlternativeCandidates = function (settings, selectors, orderedCand
     const dynamicIdCandidate = dynamicIdCandidateMap[settings.framework];
 
     if (dynamicIdCandidate && !alternatives.some((candidate) => candidate.value === dynamicIdCandidate.value)) {
-        alternatives.push(dynamicIdCandidate);
+        alternatives.unshift(dynamicIdCandidate);
     }
 
-    return alternatives.slice(0, 3);
+    const uniqueAlternatives = alternatives.filter((candidate, index, list) => (
+        candidate?.value && list.findIndex((item) => item.value === candidate.value) === index
+    ));
+
+    const rankAlternative = (candidate) => {
+        const strategy = candidate.meta?.strategy || "";
+        const stability = window.AQT.stabilityRank(candidate.meta?.stability) * 100;
+        let score = stability;
+
+        if (candidate.label === "Dynamic id") score += 500;
+        if (strategy === "id") score += 120;
+        if (strategy === "title") score += 70;
+        if (strategy === "role+name" || strategy === "aria-label") score += 65;
+        if (strategy === "text") score += 55;
+        if (strategy === "context-text") score += 50;
+        if (strategy === "class") score += 20;
+        if (strategy === "class*") score += 10;
+        if (strategy === "tag+nth") score -= 150;
+
+        return score;
+    };
+
+    const sortedAlternatives = uniqueAlternatives
+        .sort((first, second) => rankAlternative(second) - rankAlternative(first));
+
+    const meaningfulAlternatives = sortedAlternatives
+        .filter((candidate) => candidate.meta?.strategy !== "tag+nth");
+
+    if (meaningfulAlternatives.length >= 3) {
+        return meaningfulAlternatives.slice(0, 4);
+    }
+
+    return sortedAlternatives.slice(0, 4);
 };
 
 window.AQT.getFrameworkLocatorModel = function (selectors, rawSettings) {
