@@ -33,7 +33,6 @@ window.AQT.interactiveRoleSelector = [
 
 window.AQT.compositeControlSelector = [
     '.ant-select',
-    '.ant-select-selector',
     '.ant-picker',
     '.ant-input-affix-wrapper',
     '.ant-input-number',
@@ -332,6 +331,7 @@ window.AQT.strategyRank = function (strategy) {
     if (strategy.startsWith("data-")) return 80;
     if (strategy === "id") return 70;
     if (strategy === "role+name" || strategy === "aria-label" || strategy === "alt") return 60;
+    if (strategy === "title") return 58;
     if (strategy === "text") return 55;
     if (strategy === "context-text") return 50;
     if (strategy === "href") return 45;
@@ -499,6 +499,70 @@ window.AQT.getTextBasedSelectors = function (element, tag) {
         playwright,
         strategy: "text",
         stability: "medium"
+    };
+};
+
+window.AQT.getTitleBasedMeta = function (element, elementInfo, tag) {
+    if (!element || !elementInfo || !elementInfo.title) {
+        return null;
+    }
+
+    const title = window.AQT.normalizeText(elementInfo.title);
+
+    if (!title || title.length > 120) {
+        return null;
+    }
+
+    const role = element.getAttribute && element.getAttribute("role");
+    const escapedTitleCss = window.AQT.escapeCssValue(title);
+    const escapedTitleXpath = window.AQT.escapeXpathValue(title);
+    const escapedTitleJs = window.AQT.escapeJsSingleQuotedString(title);
+    const cssSelector = role
+        ? `${tag}[role="${window.AQT.escapeCssValue(role)}"][title="${escapedTitleCss}"]`
+        : `${tag}[title="${escapedTitleCss}"]`;
+    const xpathSelector = role
+        ? `//${tag}[@role=${window.AQT.escapeXpathValue(role)} and @title=${escapedTitleXpath}]`
+        : `//${tag}[@title=${escapedTitleXpath}]`;
+    const xpathCount = document.evaluate(
+        `count(${xpathSelector})`,
+        document,
+        null,
+        XPathResult.NUMBER_TYPE,
+        null
+    ).numberValue;
+
+    if (xpathCount !== 1) {
+        return null;
+    }
+
+    return {
+        css: {
+            value: cssSelector,
+            strategy: "title",
+            stability: "medium"
+        },
+        xpath: {
+            value: xpathSelector,
+            strategy: "title",
+            stability: "medium"
+        },
+        selenideCss: {
+            value: `$('${window.AQT.escapeJsSingleQuotedString(cssSelector)}')`,
+            strategy: "title",
+            stability: "medium"
+        },
+        selenideXpath: {
+            value: `$x("${xpathSelector}")`,
+            strategy: "title",
+            stability: "medium"
+        },
+        playwright: {
+            value: role
+                ? `page.getByRole('${window.AQT.escapeJsSingleQuotedString(role)}', { name: '${escapedTitleJs}', exact: true })`
+                : `page.locator('${window.AQT.escapeJsSingleQuotedString(cssSelector)}')`,
+            strategy: role ? "role+name" : "title",
+            stability: "medium"
+        }
     };
 };
 
@@ -805,6 +869,7 @@ window.AQT.getSelectorQualityScore = function (selectors, sourceElement) {
     if (strategy.startsWith("data-")) score += 50;
     if (strategy === "id") score += 40;
     if (strategy === "alt" || strategy === "aria-label" || strategy === "role+name") score += 35;
+    if (strategy === "title") score += 32;
     if (strategy === "href") score += 30;
     if (strategy === "text") score += 25;
     if (strategy === "context-text") score += 22;
@@ -1016,6 +1081,7 @@ window.AQT.generateSelectors = function (elementInfo, element) {
         }
     } else {
         const textBasedSelectors = window.AQT.getTextBasedSelectors(element, tag);
+        const titleMeta = window.AQT.getTitleBasedMeta(element, elementInfo, tag);
 
         if (textBasedSelectors) {
             const cssFallback = window.AQT.getCssFallbackMeta(element, tag);
@@ -1045,6 +1111,12 @@ window.AQT.generateSelectors = function (elementInfo, element) {
                 strategy: textBasedSelectors.strategy,
                 stability: textBasedSelectors.stability
             };
+        } else if (titleMeta) {
+            selectorMeta.css = titleMeta.css;
+            selectorMeta.xpath = titleMeta.xpath;
+            selectorMeta.selenideCss = titleMeta.selenideCss;
+            selectorMeta.selenideXpath = titleMeta.selenideXpath;
+            selectorMeta.playwright = titleMeta.playwright;
         } else {
             const contextualXpath = window.AQT.getContextualXpathMeta(element, tag);
 
