@@ -566,6 +566,68 @@ window.AQT.getTitleBasedMeta = function (element, elementInfo, tag) {
     };
 };
 
+window.AQT.getAncestorAlternativeCandidates = function (element) {
+    if (!element) {
+        return [];
+    }
+
+    const candidates = [];
+    const seen = new Set();
+    const ancestorTargets = [
+        window.AQT.getVisibleCompositeTarget(element),
+        element.closest(".ant-select"),
+        element.parentElement
+    ].filter((target, index, list) => (
+        target
+        && target !== element
+        && list.indexOf(target) === index
+    ));
+
+    ancestorTargets.forEach((target, index) => {
+        const tag = target.tagName ? target.tagName.toLowerCase() : "*";
+        const cssFallback = window.AQT.getCssFallbackMeta(target, tag);
+        const contextualXpath = window.AQT.getContextualXpathMeta(target, tag);
+        const xpathFallback = contextualXpath || window.AQT.getXpathFallbackMeta(target, tag);
+        const cssValue = cssFallback.value;
+        const xpathValue = xpathFallback.value;
+        const key = `${cssValue}::${xpathValue}`;
+
+        if (!cssValue || !xpathValue || seen.has(key)) {
+            return;
+        }
+
+        seen.add(key);
+        candidates.push({
+            value: cssValue,
+            raw: cssValue,
+            type: "css",
+            meta: {
+                strategy: cssFallback.strategy,
+                stability: cssFallback.stability
+            },
+            label: index === 0 ? "Container" : "Parent element",
+            hint: index === 0
+                ? "Visible wrapper for the hovered element."
+                : "Nearby ancestor element."
+        });
+        candidates.push({
+            value: xpathValue,
+            raw: xpathValue,
+            type: "xpath",
+            meta: {
+                strategy: xpathFallback.strategy,
+                stability: xpathFallback.stability
+            },
+            label: index === 0 ? "Container XPath" : "Parent XPath",
+            hint: index === 0
+                ? "XPath for the visible wrapper."
+                : "XPath for a nearby ancestor."
+        });
+    });
+
+    return candidates;
+};
+
 window.AQT.getCssFallbackMeta = function (element, tag) {
     const uniqueClassSelector = window.AQT.getUniqueClassSelector(element, tag);
 
@@ -913,6 +975,7 @@ window.AQT.generateSelectors = function (elementInfo, element) {
     let selenideXpathTextAlternative = "";
     let playwrightTextAlternative = "";
     let contextualHint = "";
+    const ancestorAlternatives = window.AQT.getAncestorAlternativeCandidates(element);
 
     const qaAttr = window.AQT.getFirstQaAttribute(elementInfo);
     const dynamicIdMeta = elementInfo.id && window.AQT.isLikelyGeneratedId(elementInfo.id)
@@ -1285,7 +1348,8 @@ Playwright (text alt) [medium]: ${playwrightTextAlternative}` : "");
         playwrightTextAlternative,
         allSelectorsText,
         contextualHint,
-        dynamicIdMeta
+        dynamicIdMeta,
+        ancestorAlternatives
     };
 };
 
@@ -1577,6 +1641,17 @@ window.AQT.getAlternativeCandidates = function (settings, selectors, orderedCand
                 ? "Requires cypress-xpath plugin"
                 : candidate.hint
         }));
+
+    const ancestorAlternatives = (selectors.ancestorAlternatives || [])
+        .filter((candidate) => candidate.value && candidate.value !== primaryCandidate.value)
+        .map((candidate) => ({
+            ...candidate,
+            hint: settings.framework === "cypress" && candidate.type === "xpath"
+                ? "Requires cypress-xpath plugin"
+                : candidate.hint
+        }));
+
+    alternatives.push(...ancestorAlternatives);
 
     const dynamicIdCandidateMap = {
         selenide: selectors.dynamicIdMeta?.css ? { raw: selectors.dynamicIdMeta.css.value, value: selectors.dynamicIdMeta.css.value, type: 'css', meta: selectors.dynamicIdMeta.css, label: 'Dynamic id', hint: selectors.dynamicIdMeta.css.hint } : null,
