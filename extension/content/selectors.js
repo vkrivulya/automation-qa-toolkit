@@ -1722,50 +1722,6 @@ window.AQT.extractAttributeValue = function (selector, attributeName) {
 };
 
 window.AQT.getAlternativeCandidates = function (settings, selectors, orderedCandidates, primaryCandidate) {
-    if (settings.framework === "playwright") {
-        const alternatives = [];
-
-        if (selectors.xpath) {
-            alternatives.push({
-                type: "xpath",
-                raw: selectors.xpath,
-                value: selectors.xpath,
-                meta: selectors.selectorMeta?.xpath || { strategy: "xpath", stability: "medium" },
-                label: "XPath"
-            });
-        }
-
-        const testIdValue = window.AQT.extractAttributeValue(selectors.css, "data-testid")
-            || window.AQT.extractAttributeValue(selectors.xpath, "data-testid");
-
-        if (testIdValue) {
-            const escapedTestId = window.AQT.escapeJsSingleQuotedString(testIdValue);
-
-            alternatives.push({
-                type: "playwright",
-                raw: `page.getByTestId('${escapedTestId}')`,
-                value: `page.getByTestId('${escapedTestId}')`,
-                meta: { strategy: "data-testid", stability: "stable" },
-                label: "getByTestId",
-                hint: "Playwright best practice"
-            });
-        }
-
-        if (selectors.playwrightTextAlternative) {
-            alternatives.push({
-                type: "playwright",
-                raw: selectors.playwrightTextAlternative,
-                value: selectors.playwrightTextAlternative,
-                meta: { strategy: "text", stability: "medium" },
-                label: "Text locator"
-            });
-        }
-
-        return alternatives
-            .filter((candidate) => candidate.value && candidate.value !== primaryCandidate.value)
-            .slice(0, 2);
-    }
-
     const alternatives = orderedCandidates
         .filter((candidate) => candidate.value !== primaryCandidate.value)
         .map((candidate) => ({
@@ -1814,6 +1770,44 @@ window.AQT.getAlternativeCandidates = function (settings, selectors, orderedCand
 
     alternatives.push(...ancestorAlternatives, ...textAlternatives, ...qaAncestorAlternatives, ...titleAlternatives);
 
+    if (settings.framework === "playwright") {
+        if (selectors.xpath) {
+            alternatives.push({
+                type: "xpath",
+                raw: selectors.xpath,
+                value: selectors.xpath,
+                meta: selectors.selectorMeta?.xpath || { strategy: "xpath", stability: "medium" },
+                label: "XPath"
+            });
+        }
+
+        const testIdValue = window.AQT.extractAttributeValue(selectors.css, "data-testid")
+            || window.AQT.extractAttributeValue(selectors.xpath, "data-testid");
+
+        if (testIdValue) {
+            const escapedTestId = window.AQT.escapeJsSingleQuotedString(testIdValue);
+
+            alternatives.push({
+                type: "playwright",
+                raw: `page.getByTestId('${escapedTestId}')`,
+                value: `page.getByTestId('${escapedTestId}')`,
+                meta: { strategy: "data-testid", stability: "stable" },
+                label: "getByTestId",
+                hint: "Playwright best practice"
+            });
+        }
+
+        if (selectors.playwrightTextAlternative) {
+            alternatives.push({
+                type: "playwright",
+                raw: selectors.playwrightTextAlternative,
+                value: selectors.playwrightTextAlternative,
+                meta: { strategy: "text", stability: "medium" },
+                label: "Text locator"
+            });
+        }
+    }
+
     const dynamicIdCandidateMap = {
         selenide: selectors.dynamicIdMeta?.css ? { raw: selectors.dynamicIdMeta.css.value, value: selectors.dynamicIdMeta.css.value, type: 'css', meta: selectors.dynamicIdMeta.css, label: 'Dynamic id', hint: selectors.dynamicIdMeta.css.hint } : null,
         selenium: selectors.dynamicIdMeta?.css ? { raw: selectors.dynamicIdMeta.css.value, value: selectors.dynamicIdMeta.css.value, type: 'css', meta: selectors.dynamicIdMeta.css, label: 'Dynamic id', hint: selectors.dynamicIdMeta.css.hint } : null,
@@ -1859,10 +1853,10 @@ window.AQT.getAlternativeCandidates = function (settings, selectors, orderedCand
         .filter((candidate) => candidate.meta?.strategy !== "tag+nth");
 
     if (meaningfulAlternatives.length >= 3) {
-        return meaningfulAlternatives.slice(0, 4);
+        return meaningfulAlternatives.slice(0, 6);
     }
 
-    return sortedAlternatives.slice(0, 4);
+    return sortedAlternatives.slice(0, 6);
 };
 
 window.AQT.getFrameworkLocatorModel = function (selectors, rawSettings) {
