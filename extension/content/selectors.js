@@ -191,10 +191,16 @@ window.AQT.getBestTarget = function (element) {
         }
 
         if (current.getAttribute) {
+            const hasUsefulTitle = Boolean(current.getAttribute("title"));
+            const hasSemanticOptionRole = current.getAttribute("role") === "option";
             const hasQaAttribute = window.AQT.qaAttributePriority
                 .some((attr) => current.getAttribute(attr));
 
             if (hasQaAttribute) {
+                return current;
+            }
+
+            if (!window.AQT.isGenericContainerTarget(current) && (hasUsefulTitle || hasSemanticOptionRole)) {
                 return current;
             }
 
@@ -239,6 +245,20 @@ window.AQT.buildElementInfo = function (element) {
         role: element.getAttribute("role"),
         name: element.getAttribute("name")
     };
+};
+
+window.AQT.getNearestTitledAncestor = function (element) {
+    if (!element || !element.closest) {
+        return null;
+    }
+
+    const candidate = element.closest('[title]');
+
+    if (!candidate || !candidate.getAttribute("title")) {
+        return null;
+    }
+
+    return candidate;
 };
 
 window.AQT.escapeCssIdentifier = function (value) {
@@ -547,26 +567,37 @@ window.AQT.getTextAlternativeCandidates = function (element, tag) {
 };
 
 window.AQT.getTitleBasedMeta = function (element, elementInfo, tag) {
-    if (!element || !elementInfo || !elementInfo.title) {
+    if (!element) {
         return null;
     }
 
-    const title = window.AQT.normalizeText(elementInfo.title);
+    const titledTarget = elementInfo?.title
+        ? element
+        : window.AQT.getNearestTitledAncestor(element);
+
+    if (!titledTarget) {
+        return null;
+    }
+
+    const titledInfo = window.AQT.buildElementInfo(titledTarget);
+    const title = window.AQT.normalizeText(titledInfo.title);
 
     if (!title || title.length > 120) {
         return null;
     }
 
-    const role = element.getAttribute && element.getAttribute("role");
+    const effectiveTag = titledInfo.tag ? titledInfo.tag.toLowerCase() : tag;
+    const role = titledTarget.getAttribute && titledTarget.getAttribute("role");
     const escapedTitleCss = window.AQT.escapeCssValue(title);
     const escapedTitleXpath = window.AQT.escapeXpathValue(title);
     const escapedTitleJs = window.AQT.escapeJsSingleQuotedString(title);
     const cssSelector = role
-        ? `${tag}[role="${window.AQT.escapeCssValue(role)}"][title="${escapedTitleCss}"]`
-        : `${tag}[title="${escapedTitleCss}"]`;
+        ? `${effectiveTag}[role="${window.AQT.escapeCssValue(role)}"][title="${escapedTitleCss}"]`
+        : `${effectiveTag}[title="${escapedTitleCss}"]`;
     const xpathSelector = role
-        ? `//${tag}[@role=${window.AQT.escapeXpathValue(role)} and @title=${escapedTitleXpath}]`
-        : `//${tag}[@title=${escapedTitleXpath}]`;
+        ? `//${effectiveTag}[@role=${window.AQT.escapeXpathValue(role)} and @title=${escapedTitleXpath}]`
+        : `//${effectiveTag}[@title=${escapedTitleXpath}]`;
+    const titleOnlyXpath = `//${effectiveTag}[@title=${escapedTitleXpath}]`;
     const xpathCount = document.evaluate(
         `count(${xpathSelector})`,
         document,
@@ -590,6 +621,7 @@ window.AQT.getTitleBasedMeta = function (element, elementInfo, tag) {
             strategy: "title",
             stability: "medium"
         },
+        titleOnlyXpath,
         selenideCss: {
             value: `$('${window.AQT.escapeJsSingleQuotedString(cssSelector)}')`,
             strategy: "title",
@@ -1099,6 +1131,14 @@ window.AQT.generateSelectors = function (elementInfo, element) {
             meta: titleMeta.xpath,
             label: "Title XPath",
             hint: "XPath based on the title attribute."
+        },
+        {
+            value: titleMeta.titleOnlyXpath,
+            raw: titleMeta.titleOnlyXpath,
+            type: "xpath",
+            meta: { strategy: "title", stability: "medium" },
+            label: "Title-only XPath",
+            hint: "XPath using only title on the option wrapper."
         }
     ] : [];
 
@@ -1277,7 +1317,13 @@ window.AQT.generateSelectors = function (elementInfo, element) {
     } else {
         const textBasedSelectors = window.AQT.getTextBasedSelectors(element, tag);
 
-        if (textBasedSelectors) {
+        if (titleMeta) {
+            selectorMeta.css = titleMeta.css;
+            selectorMeta.xpath = titleMeta.xpath;
+            selectorMeta.selenideCss = titleMeta.selenideCss;
+            selectorMeta.selenideXpath = titleMeta.selenideXpath;
+            selectorMeta.playwright = titleMeta.playwright;
+        } else if (textBasedSelectors) {
             const cssFallback = window.AQT.getCssFallbackMeta(element, tag);
 
             selectorMeta.css = {
@@ -1305,12 +1351,6 @@ window.AQT.generateSelectors = function (elementInfo, element) {
                 strategy: textBasedSelectors.strategy,
                 stability: textBasedSelectors.stability
             };
-        } else if (titleMeta) {
-            selectorMeta.css = titleMeta.css;
-            selectorMeta.xpath = titleMeta.xpath;
-            selectorMeta.selenideCss = titleMeta.selenideCss;
-            selectorMeta.selenideXpath = titleMeta.selenideXpath;
-            selectorMeta.playwright = titleMeta.playwright;
         } else {
             const contextualXpath = window.AQT.getContextualXpathMeta(element, tag);
 
