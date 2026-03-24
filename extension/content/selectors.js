@@ -1852,11 +1852,37 @@ window.AQT.getAlternativeCandidates = function (settings, selectors, orderedCand
     const meaningfulAlternatives = sortedAlternatives
         .filter((candidate) => candidate.meta?.strategy !== "tag+nth");
 
+    const requiredTextAlternatives = meaningfulAlternatives.filter((candidate) => (
+        candidate.label === "XPath exact text" || candidate.label === "XPath contains text"
+    ));
+
+    const mergeRequiredAlternatives = (pool, limit) => {
+        const merged = [];
+
+        requiredTextAlternatives.forEach((candidate) => {
+            if (!merged.some((item) => item.value === candidate.value)) {
+                merged.push(candidate);
+            }
+        });
+
+        pool.forEach((candidate) => {
+            if (merged.length >= limit) {
+                return;
+            }
+
+            if (!merged.some((item) => item.value === candidate.value)) {
+                merged.push(candidate);
+            }
+        });
+
+        return merged.slice(0, limit);
+    };
+
     if (meaningfulAlternatives.length >= 3) {
-        return meaningfulAlternatives.slice(0, 6);
+        return mergeRequiredAlternatives(meaningfulAlternatives, 6);
     }
 
-    return sortedAlternatives.slice(0, 6);
+    return mergeRequiredAlternatives(sortedAlternatives, 6);
 };
 
 window.AQT.getFrameworkLocatorModel = function (selectors, rawSettings) {
