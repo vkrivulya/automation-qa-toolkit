@@ -135,6 +135,11 @@ window.AQT.getBestTarget = function (element) {
         return null;
     }
 
+    const svgTarget = window.AQT.getSvgTarget(element);
+    if (svgTarget) {
+        return svgTarget;
+    }
+
     const visibleCompositeTarget = window.AQT.getVisibleCompositeTarget(element);
 
     if (visibleCompositeTarget) {
@@ -261,6 +266,98 @@ window.AQT.getNearestTitledAncestor = function (element) {
     return candidate;
 };
 
+window.AQT.isSvgElement = function (element) {
+    if (!element || !element.tagName) {
+        return false;
+    }
+
+    const tagName = String(element.tagName).toLowerCase();
+
+    return tagName === "svg" || tagName === "path" || tagName === "g" || tagName === "use";
+};
+
+window.AQT.isRootLikeContainer = function (element) {
+    if (!element || !element.tagName) {
+        return false;
+    }
+
+    const id = (element.getAttribute && element.getAttribute("id")) || "";
+    const tagName = String(element.tagName).toUpperCase();
+
+    return id === "root" || tagName === "BODY" || tagName === "HTML";
+};
+
+window.AQT.getSvgTarget = function (element) {
+    if (!window.AQT.isSvgElement(element) && !(element && element.closest && element.closest("svg"))) {
+        return null;
+    }
+
+    const svg = String(element.tagName || "").toLowerCase() === "svg"
+        ? element
+        : element.closest("svg");
+
+    if (!svg) {
+        return null;
+    }
+
+    const semanticAncestor = svg.closest("[data-testid], [data-test-id], [data-e2e], [data-qa], [aria-label], button, a");
+
+    if (semanticAncestor && !window.AQT.isRootLikeContainer(semanticAncestor)) {
+        return semanticAncestor;
+    }
+
+    return svg;
+};
+
+window.AQT.getSvgMeta = function (element) {
+    const svg = String(element?.tagName || "").toLowerCase() === "svg"
+        ? element
+        : element?.closest?.("svg");
+
+    if (!svg) {
+        return null;
+    }
+
+    const classContainsSelector = window.AQT.getClassContainsSelector(svg, "svg");
+    const uniqueClassSelector = window.AQT.getUniqueClassSelector(svg, "svg");
+    const effectiveCss = classContainsSelector || uniqueClassSelector || "svg";
+    const classFragmentMatch = classContainsSelector.match(/\[class\*='([^']+)'\]/);
+    const classFragment = classFragmentMatch ? classFragmentMatch[1] : "";
+    const xpath = classFragment
+        ? `//*[local-name()='svg'][contains(@class, ${window.AQT.escapeXpathValue(classFragment)})]`
+        : "//*[local-name()='svg']";
+    const escapedCss = window.AQT.escapeJsSingleQuotedString(effectiveCss);
+
+    return {
+        css: {
+            value: effectiveCss,
+            strategy: classFragment ? "svg-class" : "svg-tag",
+            stability: classFragment ? "medium" : "weak"
+        },
+        xpath: {
+            value: xpath,
+            strategy: classFragment ? "svg-class" : "svg-tag",
+            stability: classFragment ? "medium" : "weak"
+        },
+        selenideCss: {
+            value: `$('${escapedCss}')`,
+            strategy: classFragment ? "svg-class" : "svg-tag",
+            stability: classFragment ? "medium" : "weak"
+        },
+        selenideXpath: {
+            value: `$x("${xpath}")`,
+            strategy: classFragment ? "svg-class" : "svg-tag",
+            stability: classFragment ? "medium" : "weak"
+        },
+        playwright: {
+            value: `page.locator('${escapedCss}')`,
+            strategy: classFragment ? "svg-class" : "svg-tag",
+            stability: classFragment ? "medium" : "weak"
+        },
+        hint: "SVG element detected; XPath uses local-name()."
+    };
+};
+
 window.AQT.escapeCssIdentifier = function (value) {
     if (value == null) return "";
 
@@ -357,6 +454,8 @@ window.AQT.strategyRank = function (strategy) {
     if (strategy === "context-text") return 50;
     if (strategy === "href") return 45;
     if (strategy === "name") return 40;
+    if (strategy === "svg-class") return 38;
+    if (strategy === "svg-tag") return 15;
     if (strategy === "class") return 30;
     if (strategy === "class*") return 25;
     if (strategy === "tag+nth") return 10;
@@ -1072,7 +1171,9 @@ window.AQT.getSelectorQualityScore = function (selectors, sourceElement) {
     if (strategy === "text-contains") score += 23;
     if (strategy === "context-text") score += 22;
     if (strategy === "name") score += 20;
+    if (strategy === "svg-class") score += 18;
     if (strategy === "class" || strategy === "class*") score += 10;
+    if (strategy === "svg-tag") score -= 20;
     if (strategy === "tag+nth") score -= 30;
 
     if (sourceElement && sourceElement.tagName === "IMG" && strategy === "alt") {
@@ -1145,11 +1246,19 @@ window.AQT.generateSelectors = function (elementInfo, element) {
     const qaAttr = window.AQT.getFirstQaAttribute(elementInfo);
     const qaAncestor = window.AQT.getNearestQaAncestor(element);
     const promotedQaAttr = !qaAttr ? qaAncestor?.qaAttr : null;
+    const svgMeta = window.AQT.getSvgMeta(element);
     const dynamicIdMeta = elementInfo.id && window.AQT.isLikelyGeneratedId(elementInfo.id)
         ? window.AQT.getDynamicIdMeta(elementInfo, tag)
         : null;
 
-    if (qaAttr || promotedQaAttr) {
+    if (svgMeta) {
+        selectorMeta.css = svgMeta.css;
+        selectorMeta.xpath = svgMeta.xpath;
+        selectorMeta.selenideCss = svgMeta.selenideCss;
+        selectorMeta.selenideXpath = svgMeta.selenideXpath;
+        selectorMeta.playwright = svgMeta.playwright;
+        contextualHint = svgMeta.hint;
+    } else if (qaAttr || promotedQaAttr) {
         const activeQaAttr = qaAttr || promotedQaAttr;
         const escapedCss = window.AQT.escapeCssValue(activeQaAttr.value);
         const escapedXpath = window.AQT.escapeXpathValue(activeQaAttr.value);
