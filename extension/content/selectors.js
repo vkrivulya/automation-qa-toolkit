@@ -1251,14 +1251,7 @@ window.AQT.generateSelectors = function (elementInfo, element) {
         ? window.AQT.getDynamicIdMeta(elementInfo, tag)
         : null;
 
-    if (svgMeta) {
-        selectorMeta.css = svgMeta.css;
-        selectorMeta.xpath = svgMeta.xpath;
-        selectorMeta.selenideCss = svgMeta.selenideCss;
-        selectorMeta.selenideXpath = svgMeta.selenideXpath;
-        selectorMeta.playwright = svgMeta.playwright;
-        contextualHint = svgMeta.hint;
-    } else if (qaAttr || promotedQaAttr) {
+    if (qaAttr || promotedQaAttr) {
         const activeQaAttr = qaAttr || promotedQaAttr;
         const escapedCss = window.AQT.escapeCssValue(activeQaAttr.value);
         const escapedXpath = window.AQT.escapeXpathValue(activeQaAttr.value);
@@ -1293,6 +1286,13 @@ window.AQT.generateSelectors = function (elementInfo, element) {
         if (!qaAttr) {
             contextualHint = `Promoted parent attribute: ${activeQaAttr.attr}`;
         }
+    } else if (svgMeta) {
+        selectorMeta.css = svgMeta.css;
+        selectorMeta.xpath = svgMeta.xpath;
+        selectorMeta.selenideCss = svgMeta.selenideCss;
+        selectorMeta.selenideXpath = svgMeta.selenideXpath;
+        selectorMeta.playwright = svgMeta.playwright;
+        contextualHint = svgMeta.hint;
     } else if (elementInfo.id && !window.AQT.isLikelyGeneratedId(elementInfo.id)) {
         const escapedId = window.AQT.escapeCssIdentifier(elementInfo.id);
         const escapedXpath = window.AQT.escapeXpathValue(elementInfo.id);
