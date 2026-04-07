@@ -149,9 +149,14 @@ window.AQT.bindPanelEvents = function (panel, selectors) {
 
     const pickNextButton = panel.querySelector("#aqt-pick-next");
     if (pickNextButton) {
+        pickNextButton.addEventListener("mousedown", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+        });
+
         pickNextButton.addEventListener("click", () => {
             window.AQT.startPicker();
-            window.AQT.showToast("Picker mode enabled. Click any element.");
+            window.AQT.showToast("Picker mode enabled. Click any element, including an open dropdown item.");
         });
     }
 
