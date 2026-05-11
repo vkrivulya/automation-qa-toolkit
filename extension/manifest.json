@@ -6,7 +6,8 @@
   "permissions": [
     "activeTab",
     "scripting",
-    "storage"
+    "storage",
+    "tabs"
   ],
   "action": {
     "default_popup": "popup.html"
@@ -26,6 +27,7 @@
         "content/utils.js",
         "content/selectors.js",
         "content/panel.js",
+        "content/report.js",
         "content/picker.js",
         "content/main.js"
       ]

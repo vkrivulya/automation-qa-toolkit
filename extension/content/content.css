@@ -136,6 +136,17 @@
     opacity: 0.92;
 }
 
+.aqt-panel-copy-secondary {
+    background: transparent;
+    color: #6b7280;
+    border: 1px solid #d1d5db;
+}
+
+.aqt-panel-copy-secondary:hover {
+    background: #f3f4f6;
+    opacity: 1;
+}
+
 .aqt-toast {
     position: fixed;
     top: 24px;
