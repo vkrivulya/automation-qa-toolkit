@@ -126,6 +126,7 @@ window.AQT.buildPanelContent = function (selectors, settings) {
 
     <div class="aqt-panel-actions">
       <button id="aqt-pick-next" class="aqt-panel-copy">Pick another element</button>
+      <button id="aqt-generate-report" class="aqt-panel-copy aqt-panel-copy-secondary">Generate Bug Report</button>
     </div>
   `;
 };
@@ -157,6 +158,26 @@ window.AQT.bindPanelEvents = function (panel, selectors) {
         pickNextButton.addEventListener("click", () => {
             window.AQT.startPicker();
             window.AQT.showToast("Picker mode enabled. Click any element, including an open dropdown item.");
+        });
+    }
+
+    const generateReportButton = panel.querySelector("#aqt-generate-report");
+    if (generateReportButton) {
+        generateReportButton.addEventListener("click", async () => {
+            generateReportButton.disabled = true;
+            generateReportButton.textContent = "Generating…";
+            try {
+                const result = await window.AQT.generateBugReport(selectors);
+                window.AQT.downloadTextFile(result.filename, result.markdown);
+                await window.AQT.copyToClipboard(result.markdown);
+                window.AQT.showToast("Bug report downloaded and copied to clipboard");
+            } catch (err) {
+                window.AQT.showToast("Failed to generate report");
+                console.error(err);
+            } finally {
+                generateReportButton.disabled = false;
+                generateReportButton.textContent = "Generate Bug Report";
+            }
         });
     }
 

@@ -100,6 +100,8 @@ window.AQT.selectElement = async function (event) {
         lastSelectedElement: selectors
     });
 
+    window.AQT.pickerState.lastPickedElement = targetElement || originalElement;
+
     window.AQT.stopPicker();
     window.AQT.showToast(`Selector saved: ${selectors.strategy}`);
     await window.AQT.showFloatingPanel(selectors);
