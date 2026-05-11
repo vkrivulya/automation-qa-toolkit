@@ -38,17 +38,34 @@ window.AQT.stopPicker = function () {
     }
 };
 
+window.AQT.getPointerTarget = function (event) {
+    if (!event) {
+        return null;
+    }
+
+    const elementsAtPoint = document.elementsFromPoint
+        ? document.elementsFromPoint(event.clientX, event.clientY)
+        : [];
+
+    const pointerCandidate = elementsAtPoint.find((element) => element && !window.AQT.isToolkitUiElement(element));
+
+    return pointerCandidate || event.target || null;
+};
+
 window.AQT.highlightElement = function (event) {
     const state = window.AQT.pickerState;
 
-    if (!state.active || window.AQT.isToolkitUiElement(event.target)) return;
+    const pointerTarget = window.AQT.getPointerTarget(event);
 
-    if (state.highlightedElement && state.highlightedElement !== event.target) {
+    if (!state.active || window.AQT.isToolkitUiElement(pointerTarget)) return;
+
+    if (state.highlightedElement && state.highlightedElement !== pointerTarget) {
         state.highlightedElement.style.outline = "";
         state.highlightedElement.style.outlineOffset = "";
     }
 
-    state.highlightedElement = window.AQT.getBestTarget(event.target);
+    state.highlightedElement = window.AQT.getBestTarget(pointerTarget);
+    if (!state.highlightedElement) return;
     state.highlightedElement.style.outline = "2px solid #ff4d4f";
     state.highlightedElement.style.outlineOffset = "2px";
 };
@@ -56,12 +73,14 @@ window.AQT.highlightElement = function (event) {
 window.AQT.selectElement = async function (event) {
     const state = window.AQT.pickerState;
 
-    if (!state.active || window.AQT.isToolkitUiElement(event.target)) return;
+    const pointerTarget = window.AQT.getPointerTarget(event);
+
+    if (!state.active || window.AQT.isToolkitUiElement(pointerTarget)) return;
 
     event.preventDefault();
     event.stopPropagation();
 
-    const originalElement = event.target;
+    const originalElement = pointerTarget;
     const targetElement = window.AQT.getBestTarget(originalElement);
 
     const originalInfo = window.AQT.buildElementInfo(originalElement);
