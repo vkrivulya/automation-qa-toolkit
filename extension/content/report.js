@@ -16,6 +16,14 @@ window.AQT.generateBugReport = async function (selectors) {
     const strategy = selectors.strategy || '—';
     const stability = selectors.stability || '—';
 
+    const storedData = await new Promise(resolve => chrome.storage.local.get('aqtSettings', resolve));
+    const settings = window.AQT.normalizeSettings(storedData.aqtSettings || {});
+    const locatorModel = window.AQT.getFrameworkLocatorModel(selectors, settings);
+
+    const basename = `bug-report-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}`;
+    const filename = `${basename}.md`;
+    const screenshotFilename = `${basename}.png`;
+
     let screenshotDataUrl = null;
     try {
         const response = await new Promise((resolve) => {
@@ -26,9 +34,13 @@ window.AQT.generateBugReport = async function (selectors) {
         // screenshot unavailable
     }
 
-    let highlightedDataUrl = null;
-    if (screenshotDataUrl && bbox && bbox.width > 0 && bbox.height > 0) {
-        highlightedDataUrl = await new Promise((resolve) => {
+    let screenshotBlob = null;
+    let screenshotSection = '_(Screenshot not available)_';
+
+    if (screenshotDataUrl) {
+        const hasHighlight = bbox && bbox.width > 0 && bbox.height > 0;
+
+        screenshotBlob = await new Promise((resolve) => {
             const img = new Image();
             img.onload = () => {
                 const canvas = document.createElement('canvas');
@@ -37,30 +49,38 @@ window.AQT.generateBugReport = async function (selectors) {
                 canvas.height = img.height;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0);
-                ctx.fillStyle = 'rgba(220, 38, 38, 0.2)';
-                ctx.fillRect(bbox.x * dpr, bbox.y * dpr, bbox.width * dpr, bbox.height * dpr);
-                ctx.strokeStyle = 'rgba(220, 38, 38, 0.9)';
-                ctx.lineWidth = 2 * dpr;
-                ctx.strokeRect(bbox.x * dpr, bbox.y * dpr, bbox.width * dpr, bbox.height * dpr);
-                resolve(canvas.toDataURL('image/png'));
+
+                if (hasHighlight) {
+                    ctx.fillStyle = 'rgba(220, 38, 38, 0.2)';
+                    ctx.fillRect(bbox.x * dpr, bbox.y * dpr, bbox.width * dpr, bbox.height * dpr);
+                    ctx.strokeStyle = 'rgba(220, 38, 38, 0.9)';
+                    ctx.lineWidth = 2 * dpr;
+                    ctx.strokeRect(bbox.x * dpr, bbox.y * dpr, bbox.width * dpr, bbox.height * dpr);
+                }
+
+                canvas.toBlob((blob) => resolve(blob), 'image/png');
             };
             img.onerror = () => resolve(null);
             img.src = screenshotDataUrl;
         });
-    }
 
-    const screenshotSection = highlightedDataUrl
-        ? `<img src="${highlightedDataUrl}" width="800" alt="Screenshot with highlighted element" />`
-        : screenshotDataUrl
-            ? `<img src="${screenshotDataUrl}" width="800" alt="Screenshot" />`
-            : '_(Screenshot not available)_';
+        if (screenshotBlob) {
+            screenshotSection = `![Screenshot](${screenshotFilename})`;
+        }
+    }
 
     const markdown = `# Bug Report
 
 **URL:** ${pageUrl}
 **Page title:** ${pageTitle}
 **Timestamp:** ${timestamp}
+
+<details>
+<summary>Environment</summary>
+
 **Browser:** ${browserInfo}
+
+</details>
 
 ---
 
@@ -78,6 +98,22 @@ window.AQT.generateBugReport = async function (selectors) {
 
 ---
 
+## Locator
+
+**Framework:** ${locatorModel.frameworkTitle} · ${settings.language}
+
+**Recommended:**
+\`\`\`
+${locatorModel.primary}
+\`\`\`
+
+**Raw selector:**
+\`\`\`
+${primarySelector}
+\`\`\`
+
+---
+
 ## Screenshot
 
 ${screenshotSection}
@@ -86,16 +122,17 @@ ${screenshotSection}
 
 ## Steps to Reproduce
 
-1. <!-- Fill in steps -->
+1. Open: ${pageUrl}
+2. Locate element: \`${primarySelector}\` (${elementTag}, ${strategy}, ${stability})
+3. <!-- Add interaction steps here -->
 
-## Expected Behavior
+## Actual Result
 
-<!-- Describe expected behavior -->
+<!-- What happened -->
 
-## Actual Behavior
+## Expected Result
 
-<!-- Describe actual behavior -->`;
+<!-- What should happen -->`;
 
-    const filename = `bug-report-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.md`;
-    return { markdown, filename };
+    return { markdown, filename, screenshotBlob, screenshotFilename };
 };

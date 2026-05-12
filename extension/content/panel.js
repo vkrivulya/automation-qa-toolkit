@@ -126,7 +126,7 @@ window.AQT.buildPanelContent = function (selectors, settings) {
 
     <div class="aqt-panel-actions">
       <button id="aqt-pick-next" class="aqt-panel-copy">Pick another element</button>
-      <button id="aqt-generate-report" class="aqt-panel-copy aqt-panel-copy-secondary">Generate Bug Report</button>
+      <button id="aqt-generate-report" class="aqt-panel-copy aqt-panel-copy-secondary">Export QA Report</button>
     </div>
   `;
 };
@@ -165,18 +165,21 @@ window.AQT.bindPanelEvents = function (panel, selectors) {
     if (generateReportButton) {
         generateReportButton.addEventListener("click", async () => {
             generateReportButton.disabled = true;
-            generateReportButton.textContent = "Generating…";
+            generateReportButton.textContent = "Exporting…";
             try {
                 const result = await window.AQT.generateBugReport(selectors);
                 window.AQT.downloadTextFile(result.filename, result.markdown);
+                if (result.screenshotBlob) {
+                    window.AQT.downloadBlobFile(result.screenshotFilename, result.screenshotBlob);
+                }
                 await window.AQT.copyToClipboard(result.markdown);
-                window.AQT.showToast("Bug report downloaded and copied to clipboard");
+                window.AQT.showToast("QA report exported and copied to clipboard");
             } catch (err) {
                 window.AQT.showToast("Failed to generate report");
                 console.error(err);
             } finally {
                 generateReportButton.disabled = false;
-                generateReportButton.textContent = "Generate Bug Report";
+                generateReportButton.textContent = "Export QA Report";
             }
         });
     }
