@@ -37,20 +37,52 @@ Invoke these agents by passing them a focused task. Each agent has a definition 
 | Debugger | `agents/debugger.md` | Investigating a bug or unexpected behavior |
 | Unit Test Engineer | `agents/unit-test-engineer.md` | Writing unit tests for a specific module |
 
-## Orchestration Workflow
+## Orchestration Workflow (Orchestrator-Driven)
 
-For every new feature or significant change, follow this sequence:
+The orchestrator — this top-level Claude session — is the only coordinator. **Sub-agents never spawn other sub-agents.** The orchestrator preserves the full conversation context with the user and decides which agents to invoke at each phase.
+
+### Full Lifecycle (non-trivial features)
 
 ```
-1. PLAN   → Architect agent produces plan.md in agents-workspace/plan/<feature>/
-2. REVIEW → User approves the plan before any code is written
-3. BUILD  → Worker agent executes one step at a time, stopping for feedback
-4. TEST   → Unit Test Engineer writes tests if applicable
-5. REVIEW → Code Reviewer reviews the branch diff
-6. MERGE  → Fix critical/major findings, then merge
+1. PLAN       → Architect agent produces plan.md in agents-workspace/plan/<feature>/
+2. APPROVE    → User explicitly approves the plan before any code is written
+3. BUILD      → Worker agent executes one scoped step at a time
+4. VERIFY     → Orchestrator inspects `git diff` after every Worker step
+5. VALIDATE   → Unit Test Engineer + Code Reviewer invoked IN PARALLEL on the final diff
+6. SYNTHESIZE → Orchestrator merges findings into one Critical / Major / Minor / Nits list
+7. FIX        → If critical or major findings: Worker fixes, then re-validate
+8. MERGE      → Commit, push, open PR only after a clean pass
 ```
 
-For small bug fixes or isolated changes, skip directly to Worker → Code Reviewer.
+### After-Worker Checklist (mandatory)
+
+After every Worker step, the orchestrator MUST:
+
+1. Run `git diff` and read the actual changes — Worker's summary is not authoritative
+2. Confirm the diff matches the scoped step (no scope creep, no surprise refactors)
+3. After the **final** step: spawn Unit Test Engineer and Code Reviewer in a **single message with two parallel `Agent` tool calls**
+4. Synthesize both reports into one prioritized list and present it to the user
+5. Only commit, push, and open the PR after the user confirms the change is ready
+
+### Change-Type Matrix
+
+Not every change needs the full cycle. Use this matrix to decide which agents to invoke. **When in doubt, escalate one row up — never skip down.**
+
+| Change type | Architect | Worker | Unit Tests | Code Reviewer |
+|---|:-:|:-:|:-:|:-:|
+| Trivial (rename, typo, copy change) | – | ✓ | – | – |
+| Bug fix (< 30 lines, isolated) | – | ✓ | ✓ if area has tests | ✓ |
+| New feature | ✓ | ✓ | ✓ | ✓ |
+| Refactor (no behavior change) | ✓ | ✓ | ✓ regression | ✓ |
+| Docs / orchestration only | – | ✓ or inline | – | optional |
+| Hotfix on `main` | – | inline | – | post-merge |
+
+### Parallelism Rule
+
+Unit Test Engineer and Code Reviewer are **independent passes** on the same diff. They must run in parallel (one message, two `Agent` tool calls) so that:
+- Total wall-clock time is halved
+- Neither agent sees the other's findings, preserving independence
+- The orchestrator — not an agent — synthesizes the combined verdict
 
 ## Development Rules
 

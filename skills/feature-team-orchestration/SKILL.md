@@ -32,16 +32,19 @@ For each step in the plan (in order):
 1. Invoke the **Worker** agent with:
    - Path to the plan document
    - The specific step number to implement
-2. After Worker completes, mark the step `[x]` in the plan
-3. Present Worker's summary (what changed, how to test) to the user
-4. Stop and wait for the user's go-ahead before the next step
+2. **Inspect `git diff` yourself** — confirm the diff matches the scoped step (no scope creep). Do not trust Worker's summary.
+3. Mark the step `[x]` in the plan
+4. Present what actually changed (from the diff, not the summary) to the user
+5. Stop and wait for the user's go-ahead before the next step
 
-### Review
-After all steps are marked `[x]`:
-1. Invoke the **Code Reviewer** agent
-2. If findings are **critical** or **major**: invoke Worker to fix them, then re-review
-3. If findings are **minor** only: present them to the user for a decision
-4. When review passes, mark plan Status as `Done`
+### Validation (after the final step is `[x]`)
+1. Invoke **Unit Test Engineer** and **Code Reviewer** **in parallel** — a single message containing two `Agent` tool calls. They must not see each other's output.
+2. When both return, merge findings into one prioritized list: **critical → major → minor → nits**
+3. If any **critical** or **major** findings: invoke Worker to fix them, then re-run validation (Tests + Reviewer in parallel again)
+4. If only **minor** or **nits**: present the list to the user; let them decide
+5. When validation passes, mark plan Status as `Done`
+
+**Why parallel?** Tests and Review are independent passes on the same diff. Running them in one message halves wall-clock time and keeps each agent blind to the other's verdict — which preserves the value of two independent opinions.
 
 ---
 
@@ -76,16 +79,21 @@ User → Orchestrator: "Approved"
 
 Orchestrator → Worker: implement Step 1 (manifest changes)
 Worker → Orchestrator: done, here's what changed
-Orchestrator → User: "Step 1 complete. Ready for Step 2?"
+Orchestrator: runs `git diff`, confirms diff matches Step 1 scope
+Orchestrator → User: "Step 1 complete. Diff: <summary>. Ready for Step 2?"
 User → Orchestrator: "Yes"
 
 [... steps 2–4 ...]
 
-Orchestrator → Code Reviewer: review branch diff
-Code Reviewer → Orchestrator: 1 major finding, 2 minor
+Orchestrator: spawns Unit Test Engineer AND Code Reviewer in ONE message (parallel)
+  ├─ Unit Test Engineer → Orchestrator: 3 tests proposed, awaiting approval
+  └─ Code Reviewer      → Orchestrator: 1 major finding, 2 minor
+Orchestrator → User: presents combined findings list (critical/major/minor/nits)
+User → Orchestrator: "Fix the major, skip the minors"
 Orchestrator → Worker: fix the major finding
 Worker → Orchestrator: fixed
-Orchestrator → Code Reviewer: re-review
-Code Reviewer → Orchestrator: No issues found.
+Orchestrator: spawns Tests + Reviewer in parallel again on the new diff
+  ├─ Tests:    No regressions
+  └─ Reviewer: No issues found.
 Orchestrator → User: "Feature complete. Plan marked Done."
 ```

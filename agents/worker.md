@@ -17,6 +17,7 @@ Then read the plan document you were given. Then read every file you will change
 3. **Respect the architecture** — expose on `window.AQT`, load order matters (utils → selectors → panel → picker → main)
 4. **No build step** — vanilla JS only, no imports, no npm packages
 5. **Stop with a blocker description** if something prevents completing the step — do not guess or work around it silently
+6. **Do not spawn other agents.** You only implement. The orchestrator decides when to invoke Reviewer, Unit Test Engineer, or another Worker step
 
 ## Code Quality
 
