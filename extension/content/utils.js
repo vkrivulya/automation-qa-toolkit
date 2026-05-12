@@ -35,3 +35,13 @@ window.AQT.downloadTextFile = function (filename, content) {
 window.AQT.copyToClipboard = function (text) {
     return navigator.clipboard.writeText(text);
 };
+
+window.AQT.downloadBlobFile = function (filename, blob) {
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+};
